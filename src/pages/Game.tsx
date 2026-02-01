@@ -362,13 +362,22 @@ const Game = () => {
   const handleLeaveLobby = async () => {
     if (!lobby || !user || !myPlayer) return;
 
-    await supabase.from("lobby_players").delete().eq("id", myPlayer.id);
-    
+    // If host is leaving, transfer host to another player
     if (lobby.host_id === user.id) {
-      // Delete lobby if host leaves
-      await supabase.from("lobbies").delete().eq("id", lobby.id);
+      const otherPlayers = players.filter((p) => p.user_id !== user.id && !p.is_eliminated);
+      if (otherPlayers.length > 0) {
+        // Transfer host to first available player
+        await supabase
+          .from("lobbies")
+          .update({ host_id: otherPlayers[0].user_id })
+          .eq("id", lobby.id);
+      } else {
+        // No other players, delete the lobby
+        await supabase.from("lobbies").delete().eq("id", lobby.id);
+      }
     }
 
+    await supabase.from("lobby_players").delete().eq("id", myPlayer.id);
     navigate("/lobby");
   };
 
