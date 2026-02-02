@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Users, Plus, LogIn, LogOut, User } from "lucide-react";
 import { toast } from "sonner";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
+import FriendsList from "@/components/game/FriendsList";
 
 interface Profile {
   username: string;
@@ -200,82 +201,92 @@ const Lobby = () => {
         </Button>
       </div>
 
-      <div className="w-full max-w-md space-y-6 relative z-10">
-        {/* Stats Card */}
-        {profile && (
-          <Card className="card-game border-border animate-slide-up">
-            <CardContent className="pt-6">
-              <div className="flex justify-around text-center">
-                <div>
-                  <p className="text-2xl font-display font-bold text-foreground">{profile.games_played}</p>
-                  <p className="text-xs text-muted-foreground">Partidas</p>
-                </div>
-                <div className="w-px bg-border" />
-                <div>
-                  <p className="text-2xl font-display font-bold text-safe">{profile.games_won}</p>
-                  <p className="text-xs text-muted-foreground">Victorias</p>
-                </div>
-                <div className="w-px bg-border" />
-                <div>
-                  <p className="text-2xl font-display font-bold text-gold">
-                    {profile.games_played > 0 
-                      ? Math.round((profile.games_won / profile.games_played) * 100) 
-                      : 0}%
-                  </p>
-                  <p className="text-xs text-muted-foreground">Win Rate</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+      <div className="w-full max-w-4xl relative z-10">
+        <div className="grid md:grid-cols-3 gap-6">
+          {/* Left Column - Friends */}
+          <div className="md:col-span-1 space-y-6">
+            {user && <FriendsList user={user} />}
+          </div>
 
-        {/* Create Lobby Card */}
-        <Card className="card-game border-border animate-slide-up" style={{ animationDelay: "0.1s" }}>
-          <CardHeader>
-            <CardTitle className="font-display flex items-center gap-2">
-              <Plus className="w-5 h-5 text-safe" />
-              Crear Sala
-            </CardTitle>
-            <CardDescription>Crea una nueva sala y comparte el código</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button 
-              className="w-full btn-safe" 
-              onClick={handleCreateLobby}
-              disabled={loading}
-            >
-              <Users className="w-4 h-4 mr-2" />
-              Crear Nueva Sala
-            </Button>
-          </CardContent>
-        </Card>
+          {/* Right Column - Lobby Actions */}
+          <div className="md:col-span-2 space-y-6">
+            {/* Stats Card */}
+            {profile && (
+              <Card className="card-game border-border animate-slide-up">
+                <CardContent className="pt-6">
+                  <div className="flex justify-around text-center">
+                    <div>
+                      <p className="text-2xl font-display font-bold text-foreground">{profile.games_played}</p>
+                      <p className="text-xs text-muted-foreground">Partidas</p>
+                    </div>
+                    <div className="w-px bg-border" />
+                    <div>
+                      <p className="text-2xl font-display font-bold text-safe">{profile.games_won}</p>
+                      <p className="text-xs text-muted-foreground">Victorias</p>
+                    </div>
+                    <div className="w-px bg-border" />
+                    <div>
+                      <p className="text-2xl font-display font-bold text-gold">
+                        {profile.games_played > 0 
+                          ? Math.round((profile.games_won / profile.games_played) * 100) 
+                          : 0}%
+                      </p>
+                      <p className="text-xs text-muted-foreground">Win Rate</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-        {/* Join Lobby Card */}
-        <Card className="card-game border-border animate-slide-up" style={{ animationDelay: "0.2s" }}>
-          <CardHeader>
-            <CardTitle className="font-display flex items-center gap-2">
-              <LogIn className="w-5 h-5 text-primary" />
-              Unirse a Sala
-            </CardTitle>
-            <CardDescription>Ingresa el código de la sala</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Input
-              placeholder="CÓDIGO"
-              value={lobbyCode}
-              onChange={(e) => setLobbyCode(e.target.value.toUpperCase())}
-              className="bg-muted border-border text-center text-xl font-mono tracking-widest"
-              maxLength={6}
-            />
-            <Button 
-              className="w-full btn-impostor" 
-              onClick={handleJoinLobby}
-              disabled={loading || !lobbyCode.trim()}
-            >
-              Unirse a la Sala
-            </Button>
-          </CardContent>
-        </Card>
+            {/* Create Lobby Card */}
+            <Card className="card-game border-border animate-slide-up" style={{ animationDelay: "0.1s" }}>
+              <CardHeader>
+                <CardTitle className="font-display flex items-center gap-2">
+                  <Plus className="w-5 h-5 text-safe" />
+                  Crear Sala
+                </CardTitle>
+                <CardDescription>Crea una nueva sala y comparte el código</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button 
+                  className="w-full btn-safe" 
+                  onClick={handleCreateLobby}
+                  disabled={loading}
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Crear Nueva Sala
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Join Lobby Card */}
+            <Card className="card-game border-border animate-slide-up" style={{ animationDelay: "0.2s" }}>
+              <CardHeader>
+                <CardTitle className="font-display flex items-center gap-2">
+                  <LogIn className="w-5 h-5 text-primary" />
+                  Unirse a Sala
+                </CardTitle>
+                <CardDescription>Ingresa el código de la sala</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Input
+                  placeholder="CÓDIGO"
+                  value={lobbyCode}
+                  onChange={(e) => setLobbyCode(e.target.value.toUpperCase())}
+                  className="bg-muted border-border text-center text-xl font-mono tracking-widest"
+                  maxLength={6}
+                />
+                <Button 
+                  className="w-full btn-impostor" 
+                  onClick={handleJoinLobby}
+                  disabled={loading || !lobbyCode.trim()}
+                >
+                  Unirse a la Sala
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

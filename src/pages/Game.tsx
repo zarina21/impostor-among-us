@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Eye, Crown, Check, X, Send, Vote, ArrowLeft, Copy } from "lucide-react";
+import { Users, Eye, Send, ArrowLeft, Copy } from "lucide-react";
 import { toast } from "sonner";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import PlayerCard from "@/components/game/PlayerCard";
+import { useFriendships } from "@/hooks/useFriendships";
 
 interface Player {
   id: string;
@@ -62,6 +64,7 @@ const Game = () => {
   const [gamePhase, setGamePhase] = useState<"waiting" | "clue" | "voting" | "results" | "finished">("waiting");
   const [loading, setLoading] = useState(true);
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
+  const { getFriendStatus } = useFriendships(user);
 
   // Fetch game data
   const fetchGameData = useCallback(async () => {
@@ -435,45 +438,16 @@ const Game = () => {
             </CardHeader>
             <CardContent className="space-y-2">
               {players.map((player) => (
-                <div
+                <PlayerCard
                   key={player.id}
-                  className={`flex items-center justify-between p-3 rounded-lg transition-all ${
-                    player.is_eliminated
-                      ? "bg-destructive/10 opacity-50"
-                      : player.user_id === user?.id
-                      ? "bg-primary/10 border border-primary/30"
-                      : "bg-muted/50"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {lobby?.host_id === player.user_id && (
-                      <Crown className="w-4 h-4 text-gold" />
-                    )}
-                    <span className={player.is_eliminated ? "line-through" : ""}>
-                      {player.profiles.username}
-                    </span>
-                    {player.user_id === user?.id && (
-                      <Badge variant="secondary" className="text-xs">Tú</Badge>
-                    )}
-                  </div>
-                  {gamePhase === "waiting" && (
-                    player.is_ready ? (
-                      <Check className="w-4 h-4 text-safe" />
-                    ) : (
-                      <X className="w-4 h-4 text-muted-foreground" />
-                    )
-                  )}
-                  {gamePhase === "voting" && !player.is_eliminated && player.user_id !== user?.id && !myVote && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleVote(player.user_id)}
-                      className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                    >
-                      <Vote className="w-3 h-3" />
-                    </Button>
-                  )}
-                </div>
+                  player={player}
+                  user={user!}
+                  hostId={lobby?.host_id || ""}
+                  gamePhase={gamePhase}
+                  myVote={myVote}
+                  onVote={handleVote}
+                  friendStatus={getFriendStatus(player.user_id)}
+                />
               ))}
             </CardContent>
           </Card>
