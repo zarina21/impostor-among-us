@@ -85,23 +85,27 @@ const Game = () => {
 
     setLobby(lobbyData);
 
-    // Fetch players with profiles
+    // Fetch players
     const { data: playersData } = await supabase
       .from("lobby_players")
-      .select(`
-        id,
-        user_id,
-        is_impostor,
-        is_eliminated,
-        is_ready,
-        profiles:user_id (username)
-      `)
+      .select("id, user_id, is_impostor, is_eliminated, is_ready")
       .eq("lobby_id", lobbyData.id);
 
-    if (playersData) {
-      const formattedPlayers = playersData.map((p: any) => ({
+    if (playersData && playersData.length > 0) {
+      // Fetch profiles for all players
+      const userIds = playersData.map((p) => p.user_id);
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("user_id, username")
+        .in("user_id", userIds);
+
+      const profilesMap = new Map(
+        profilesData?.map((p) => [p.user_id, p.username]) || []
+      );
+
+      const formattedPlayers = playersData.map((p) => ({
         ...p,
-        profiles: { username: p.profiles?.username || "Jugador" },
+        profiles: { username: profilesMap.get(p.user_id) || "Jugador" },
       }));
       setPlayers(formattedPlayers);
       setMyPlayer(formattedPlayers.find((p: Player) => p.user_id === user.id) || null);
@@ -111,21 +115,28 @@ const Game = () => {
     if (lobbyData.current_round > 0) {
       const { data: cluesData } = await supabase
         .from("round_clues")
-        .select(`
-          id,
-          round,
-          user_id,
-          clue,
-          profiles:user_id (username)
-        `)
+        .select("id, round, user_id, clue")
         .eq("lobby_id", lobbyData.id)
         .eq("round", lobbyData.current_round);
 
-      if (cluesData) {
-        setClues(cluesData.map((c: any) => ({
+      if (cluesData && cluesData.length > 0) {
+        // Fetch profiles for clue authors
+        const clueUserIds = cluesData.map((c) => c.user_id);
+        const { data: clueProfilesData } = await supabase
+          .from("profiles")
+          .select("user_id, username")
+          .in("user_id", clueUserIds);
+
+        const clueProfilesMap = new Map(
+          clueProfilesData?.map((p) => [p.user_id, p.username]) || []
+        );
+
+        setClues(cluesData.map((c) => ({
           ...c,
-          profiles: { username: c.profiles?.username || "Jugador" },
+          profiles: { username: clueProfilesMap.get(c.user_id) || "Jugador" },
         })));
+      } else {
+        setClues([]);
       }
 
       // Fetch votes
