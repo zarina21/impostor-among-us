@@ -82,7 +82,9 @@ export type Database = {
       }
       lobby_players: {
         Row: {
+          bot_name: string | null
           id: string
+          is_bot: boolean | null
           is_eliminated: boolean | null
           is_impostor: boolean | null
           is_ready: boolean | null
@@ -91,7 +93,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          bot_name?: string | null
           id?: string
+          is_bot?: boolean | null
           is_eliminated?: boolean | null
           is_impostor?: boolean | null
           is_ready?: boolean | null
@@ -100,7 +104,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          bot_name?: string | null
           id?: string
+          is_bot?: boolean | null
           is_eliminated?: boolean | null
           is_impostor?: boolean | null
           is_ready?: boolean | null
