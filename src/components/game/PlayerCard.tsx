@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Crown, Check, X, UserPlus, Vote, Clock } from "lucide-react";
 import { toast } from "sonner";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
+import LobbyActions from "./LobbyActions";
 
 interface Player {
   id: string;
@@ -21,9 +22,11 @@ interface PlayerCardProps {
   player: Player;
   user: SupabaseUser;
   hostId: string;
+  lobbyId: string;
   gamePhase: "waiting" | "clue" | "voting" | "results" | "finished";
   myVote: string | null;
   onVote?: (userId: string) => void;
+  onRefresh?: () => void;
   friendStatus?: "none" | "pending" | "accepted";
 }
 
@@ -31,14 +34,17 @@ const PlayerCard = ({
   player,
   user,
   hostId,
+  lobbyId,
   gamePhase,
   myVote,
   onVote,
+  onRefresh,
   friendStatus = "none",
 }: PlayerCardProps) => {
   const [sendingRequest, setSendingRequest] = useState(false);
   const isMe = player.user_id === user.id;
   const isHost = hostId === player.user_id;
+  const amIHost = hostId === user.id;
 
   const handleSendFriendRequest = async () => {
     setSendingRequest(true);
@@ -146,6 +152,18 @@ const PlayerCard = ({
           >
             <UserPlus className="w-4 h-4" />
           </Button>
+        )}
+
+        {/* Host actions for other players */}
+        {!isMe && amIHost && gamePhase === "waiting" && (
+          <LobbyActions
+            playerId={player.id}
+            playerUserId={player.user_id}
+            playerUsername={player.profiles.username}
+            lobbyId={lobbyId}
+            isHost={amIHost}
+            onRefresh={onRefresh || (() => {})}
+          />
         )}
       </div>
     </div>
