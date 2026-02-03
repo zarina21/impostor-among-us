@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import PlayerCard from "@/components/game/PlayerCard";
+import InviteFriends from "@/components/game/InviteFriends";
 import { useFriendships } from "@/hooks/useFriendships";
 
 interface Player {
@@ -454,12 +455,26 @@ const Game = () => {
                   player={player}
                   user={user!}
                   hostId={lobby?.host_id || ""}
+                  lobbyId={lobby?.id || ""}
                   gamePhase={gamePhase}
                   myVote={myVote}
                   onVote={handleVote}
+                  onRefresh={fetchGameData}
                   friendStatus={getFriendStatus(player.user_id)}
                 />
               ))}
+
+              {/* Invite friends button in waiting phase */}
+              {gamePhase === "waiting" && user && lobby && (
+                <div className="pt-2 border-t border-border mt-4">
+                  <InviteFriends
+                    user={user}
+                    lobbyCode={lobby.code}
+                    lobbyId={lobby.id}
+                    currentPlayerIds={players.map((p) => p.user_id)}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
 
