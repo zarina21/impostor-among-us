@@ -11,6 +11,7 @@ import type { User as SupabaseUser } from "@supabase/supabase-js";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import PlayerCard from "@/components/game/PlayerCard";
 import InviteFriends from "@/components/game/InviteFriends";
+import BotManager from "@/components/game/BotManager";
 import { useFriendships } from "@/hooks/useFriendships";
 
 interface Player {
@@ -19,6 +20,8 @@ interface Player {
   is_impostor: boolean;
   is_eliminated: boolean;
   is_ready: boolean;
+  is_bot: boolean;
+  bot_name: string | null;
   profiles: {
     username: string;
   };
@@ -86,30 +89,46 @@ const Game = () => {
 
     setLobby(lobbyData);
 
-    // Fetch players
+    // Fetch players (including bot fields)
     const { data: playersData } = await supabase
       .from("lobby_players")
-      .select("id, user_id, is_impostor, is_eliminated, is_ready")
+      .select("id, user_id, is_impostor, is_eliminated, is_ready, is_bot, bot_name")
       .eq("lobby_id", lobbyData.id);
 
     if (playersData && playersData.length > 0) {
-      // Fetch profiles for all players
-      const userIds = playersData.map((p) => p.user_id);
-      const { data: profilesData } = await supabase
-        .from("profiles")
-        .select("user_id, username")
-        .in("user_id", userIds);
+      // Separate bots and real players
+      const realPlayerIds = playersData
+        .filter((p) => !p.is_bot)
+        .map((p) => p.user_id);
 
-      const profilesMap = new Map(
-        profilesData?.map((p) => [p.user_id, p.username]) || []
-      );
+      // Fetch profiles only for real players
+      let profilesMap = new Map<string, string>();
+      if (realPlayerIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from("profiles")
+          .select("user_id, username")
+          .in("user_id", realPlayerIds);
+
+        profilesMap = new Map(
+          profilesData?.map((p) => [p.user_id, p.username]) || []
+        );
+      }
 
       const formattedPlayers = playersData.map((p) => ({
         ...p,
-        profiles: { username: profilesMap.get(p.user_id) || "Jugador" },
+        is_bot: p.is_bot || false,
+        bot_name: p.bot_name || null,
+        profiles: {
+          username: p.is_bot
+            ? p.bot_name || "Bot"
+            : profilesMap.get(p.user_id) || "Jugador",
+        },
       }));
       setPlayers(formattedPlayers);
       setMyPlayer(formattedPlayers.find((p: Player) => p.user_id === user.id) || null);
+    } else {
+      setPlayers([]);
+      setMyPlayer(null);
     }
 
     // Fetch clues for current round
@@ -283,6 +302,21 @@ const Game = () => {
       .eq("id", lobby.id);
 
     toast.success("¡La partida ha comenzado!");
+
+    // Trigger bot clues after a short delay
+    const botPlayers = readyPlayers
+      .filter((p) => p.is_bot)
+      .map((p) => ({
+        user_id: p.user_id,
+        is_impostor: impostorIds.includes(p.id),
+      }));
+
+    if (botPlayers.length > 0) {
+      // Import and execute bot clues asynchronously
+      import("@/lib/botBehavior").then(({ submitBotClues }) => {
+        submitBotClues(lobby.id, 1, botPlayers);
+      });
+    }
   };
 
   const handleSubmitClue = async () => {
@@ -302,6 +336,29 @@ const Game = () => {
 
     setCurrentClue("");
     toast.success("¡Pista enviada!");
+
+    // Trigger bot votes after human submits clue
+    const botPlayers = players
+      .filter((p) => p.is_bot && !p.is_eliminated)
+      .map((p) => ({
+        user_id: p.user_id,
+        is_impostor: p.is_impostor,
+        is_eliminated: p.is_eliminated,
+        is_bot: p.is_bot,
+      }));
+
+    const allPlayersData = players.map((p) => ({
+      user_id: p.user_id,
+      is_impostor: p.is_impostor,
+      is_eliminated: p.is_eliminated,
+      is_bot: p.is_bot,
+    }));
+
+    if (botPlayers.length > 0) {
+      import("@/lib/botBehavior").then(({ submitBotVotes }) => {
+        submitBotVotes(lobby.id, lobby.current_round, botPlayers, allPlayersData);
+      });
+    }
   };
 
   const handleVote = async (votedForId: string) => {
@@ -464,14 +521,22 @@ const Game = () => {
                 />
               ))}
 
-              {/* Invite friends button in waiting phase */}
+              {/* Invite friends and bot manager in waiting phase */}
               {gamePhase === "waiting" && user && lobby && (
-                <div className="pt-2 border-t border-border mt-4">
+                <div className="pt-2 border-t border-border mt-4 space-y-2">
                   <InviteFriends
                     user={user}
                     lobbyCode={lobby.code}
                     lobbyId={lobby.id}
                     currentPlayerIds={players.map((p) => p.user_id)}
+                  />
+                  <BotManager
+                    lobbyId={lobby.id}
+                    currentPlayerCount={players.length}
+                    maxPlayers={lobby.max_players}
+                    botCount={players.filter((p) => p.is_bot).length}
+                    isHost={lobby.host_id === user.id}
+                    onRefresh={fetchGameData}
                   />
                 </div>
               )}

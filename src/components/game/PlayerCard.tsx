@@ -2,7 +2,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Crown, Check, X, UserPlus, Vote, Clock } from "lucide-react";
+import { Crown, Check, X, UserPlus, Vote, Clock, Bot } from "lucide-react";
 import { toast } from "sonner";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import LobbyActions from "./LobbyActions";
@@ -13,6 +13,8 @@ interface Player {
   is_impostor: boolean;
   is_eliminated: boolean;
   is_ready: boolean;
+  is_bot: boolean;
+  bot_name: string | null;
   profiles: {
     username: string;
   };
@@ -96,12 +98,18 @@ const PlayerCard = ({
     >
       <div className="flex items-center gap-2">
         {isHost && <Crown className="w-4 h-4 text-gold" />}
+        {player.is_bot && <Bot className="w-4 h-4 text-muted-foreground" />}
         <span className={player.is_eliminated ? "line-through" : ""}>
           {player.profiles.username}
         </span>
         {isMe && (
           <Badge variant="secondary" className="text-xs">
             Tú
+          </Badge>
+        )}
+        {player.is_bot && (
+          <Badge variant="outline" className="text-xs text-muted-foreground border-muted-foreground">
+            Bot
           </Badge>
         )}
         {friendStatus === "accepted" && !isMe && (
