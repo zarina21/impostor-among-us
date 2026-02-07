@@ -23,8 +23,11 @@ const Lobby = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check auth state
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    let isMounted = true;
+    
+    // First set up the auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return;
       if (!session) {
         navigate("/");
         return;
@@ -33,15 +36,21 @@ const Lobby = () => {
       fetchProfile(session.user.id);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Then check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!isMounted) return;
       if (!session) {
         navigate("/");
         return;
       }
       setUser(session.user);
+      fetchProfile(session.user.id);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   const fetchProfile = async (userId: string) => {
