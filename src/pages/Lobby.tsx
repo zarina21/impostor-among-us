@@ -26,7 +26,7 @@ const Lobby = () => {
     // Check auth state
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
-        navigate("/auth");
+        navigate("/");
         return;
       }
       setUser(session.user);
@@ -35,7 +35,7 @@ const Lobby = () => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
-        navigate("/auth");
+        navigate("/");
         return;
       }
       setUser(session.user);
@@ -173,6 +173,8 @@ const Lobby = () => {
     navigate("/");
   };
 
+  const isAnonymous = user?.is_anonymous;
+
   const generateCode = () => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let result = "";
@@ -194,7 +196,10 @@ const Lobby = () => {
       <div className="absolute top-4 right-4 flex items-center gap-4">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <User className="w-4 h-4" />
-          <span className="font-medium text-foreground">{profile?.username || "Cargando..."}</span>
+          <span className="font-medium text-foreground">
+            {profile?.username || "Cargando..."}
+            {isAnonymous && <span className="ml-1 text-xs text-muted-foreground">(Invitado)</span>}
+          </span>
         </div>
         <Button variant="ghost" size="sm" onClick={handleLogout}>
           <LogOut className="w-4 h-4" />
@@ -203,9 +208,23 @@ const Lobby = () => {
 
       <div className="w-full max-w-4xl relative z-10">
         <div className="grid md:grid-cols-3 gap-6">
-          {/* Left Column - Friends */}
+          {/* Left Column - Friends (only for registered users) */}
           <div className="md:col-span-1 space-y-6">
-            {user && <FriendsList user={user} />}
+            {user && !isAnonymous && <FriendsList user={user} />}
+            {isAnonymous && (
+              <div className="card-game border-border p-6 text-center">
+                <p className="text-muted-foreground text-sm mb-4">
+                  Crea una cuenta para añadir amigos y guardar tu progreso
+                </p>
+                <Button 
+                  variant="outline" 
+                  className="w-full border-border"
+                  onClick={() => navigate("/auth")}
+                >
+                  Crear Cuenta
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Right Column - Lobby Actions */}
