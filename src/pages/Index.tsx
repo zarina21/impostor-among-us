@@ -20,14 +20,7 @@ const Index = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user || null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
-      setCheckingAuth(false);
-    });
-
+    // First set up the auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null);
       if (session?.user) {
@@ -35,6 +28,16 @@ const Index = () => {
       } else {
         setProfile(null);
       }
+      setCheckingAuth(false);
+    });
+
+    // Then check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user || null);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      }
+      setCheckingAuth(false);
     });
 
     return () => subscription.unsubscribe();
