@@ -2,17 +2,19 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Eye, Send, ArrowLeft, Copy } from "lucide-react";
+import { Users, Eye, ArrowLeft, Copy } from "lucide-react";
 import { toast } from "sonner";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import PlayerCard from "@/components/game/PlayerCard";
 import InviteFriends from "@/components/game/InviteFriends";
 import BotManager from "@/components/game/BotManager";
+import CluePhase from "@/components/game/CluePhase";
 import { useFriendships } from "@/hooks/useFriendships";
+import { useTurnSystem } from "@/hooks/useTurnSystem";
+import { useBotTurnManager } from "@/hooks/useBotTurnManager";
 
 interface Player {
   id: string;
@@ -62,13 +64,29 @@ const Game = () => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [myPlayer, setMyPlayer] = useState<Player | null>(null);
   const [clues, setClues] = useState<Clue[]>([]);
-  const [currentClue, setCurrentClue] = useState("");
   const [votes, setVotes] = useState<VoteData[]>([]);
   const [myVote, setMyVote] = useState<string | null>(null);
   const [gamePhase, setGamePhase] = useState<"waiting" | "clue" | "voting" | "results" | "finished">("waiting");
   const [loading, setLoading] = useState(true);
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
   const { getFriendStatus } = useFriendships(user);
+
+  // Turn system hook
+  const { isMyTurn, currentTurnPlayer, turnOrder, allCluesSubmitted } = useTurnSystem({
+    players,
+    clues,
+    currentRound: lobby?.current_round || 0,
+    currentUserId: user?.id,
+  });
+
+  // Bot turn manager - automatically triggers bot turns
+  useBotTurnManager({
+    players,
+    clues,
+    currentRound: lobby?.current_round || 0,
+    lobbyId: lobby?.id,
+    gamePhase,
+  });
 
   // Fetch game data
   const fetchGameData = useCallback(async () => {
@@ -132,6 +150,9 @@ const Game = () => {
     }
 
     // Fetch clues for current round
+    let fetchedClues: typeof clues = [];
+    let fetchedVotes: typeof votes = [];
+    
     if (lobbyData.current_round > 0) {
       const { data: cluesData } = await supabase
         .from("round_clues")
@@ -151,10 +172,11 @@ const Game = () => {
           clueProfilesData?.map((p) => [p.user_id, p.username]) || []
         );
 
-        setClues(cluesData.map((c) => ({
+        fetchedClues = cluesData.map((c) => ({
           ...c,
           profiles: { username: clueProfilesMap.get(c.user_id) || "Jugador" },
-        })));
+        }));
+        setClues(fetchedClues);
       } else {
         setClues([]);
       }
@@ -167,6 +189,7 @@ const Game = () => {
         .eq("round", lobbyData.current_round);
 
       if (votesData) {
+        fetchedVotes = votesData;
         setVotes(votesData);
         const myVoteData = votesData.find((v) => v.voter_id === user.id);
         if (myVoteData) {
@@ -175,27 +198,38 @@ const Game = () => {
       }
     }
 
-    // Determine game phase
+    // Determine game phase based on turn system
     if (lobbyData.status === "waiting") {
       setGamePhase("waiting");
     } else if (lobbyData.status === "finished") {
       setGamePhase("finished");
     } else if (lobbyData.status === "playing") {
-      // Check if we need to submit clue or vote
-      const myClue = clues.find((c) => c.user_id === user.id && c.round === lobbyData.current_round);
-      const myVoteExists = votes.find((v) => v.voter_id === user.id);
+      // Get active players for this round
+      const activePlayersInRound = playersData?.filter(
+        (p) => !p.is_eliminated && p.is_ready
+      ) || [];
       
-      if (!myClue) {
+      // Check if all active players have submitted clues
+      const allPlayersSubmittedClues = activePlayersInRound.every((p) =>
+        fetchedClues.some((c) => c.user_id === p.user_id)
+      );
+
+      if (!allPlayersSubmittedClues) {
+        // Still in clue phase (turn-based)
         setGamePhase("clue");
-      } else if (!myVoteExists) {
-        setGamePhase("voting");
       } else {
-        setGamePhase("results");
+        // All clues submitted, check voting
+        const myVoteExists = fetchedVotes.find((v) => v.voter_id === user.id);
+        if (!myVoteExists) {
+          setGamePhase("voting");
+        } else {
+          setGamePhase("results");
+        }
       }
     }
 
     setLoading(false);
-  }, [code, user, navigate, clues, votes]);
+  }, [code, user, navigate]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -303,30 +337,26 @@ const Game = () => {
 
     toast.success("¡La partida ha comenzado!");
 
-    // Trigger bot clues after a short delay
-    const botPlayers = readyPlayers
-      .filter((p) => p.is_bot)
-      .map((p) => ({
-        user_id: p.user_id,
-        is_impostor: impostorIds.includes(p.id),
-      }));
-
-    if (botPlayers.length > 0) {
-      // Import and execute bot clues asynchronously
-      import("@/lib/botBehavior").then(({ submitBotClues }) => {
-        submitBotClues(lobby.id, 1, botPlayers);
+    // For turn-based system: only trigger first bot's clue if they're first in turn order
+    const sortedPlayers = [...readyPlayers].sort((a, b) => a.id.localeCompare(b.id));
+    const firstPlayer = sortedPlayers[0];
+    
+    if (firstPlayer && firstPlayer.is_bot) {
+      const isFirstPlayerImpostor = impostorIds.includes(firstPlayer.id);
+      import("@/lib/botBehavior").then(({ submitBotClue }) => {
+        submitBotClue(lobby.id, 1, firstPlayer.user_id, isFirstPlayerImpostor);
       });
     }
   };
 
-  const handleSubmitClue = async () => {
-    if (!lobby || !user || !currentClue.trim()) return;
+  const handleSubmitClue = async (clue: string) => {
+    if (!lobby || !user || !clue.trim()) return;
 
     const { error } = await supabase.from("round_clues").insert({
       lobby_id: lobby.id,
       round: lobby.current_round,
       user_id: user.id,
-      clue: currentClue.trim(),
+      clue: clue.trim(),
     });
 
     if (error) {
@@ -334,31 +364,10 @@ const Game = () => {
       return;
     }
 
-    setCurrentClue("");
     toast.success("¡Pista enviada!");
-
-    // Trigger bot votes after human submits clue
-    const botPlayers = players
-      .filter((p) => p.is_bot && !p.is_eliminated)
-      .map((p) => ({
-        user_id: p.user_id,
-        is_impostor: p.is_impostor,
-        is_eliminated: p.is_eliminated,
-        is_bot: p.is_bot,
-      }));
-
-    const allPlayersData = players.map((p) => ({
-      user_id: p.user_id,
-      is_impostor: p.is_impostor,
-      is_eliminated: p.is_eliminated,
-      is_bot: p.is_bot,
-    }));
-
-    if (botPlayers.length > 0) {
-      import("@/lib/botBehavior").then(({ submitBotVotes }) => {
-        submitBotVotes(lobby.id, lobby.current_round, botPlayers, allPlayersData);
-      });
-    }
+    
+    // The useBotTurnManager hook will automatically trigger the next bot's turn
+    // when the clues state updates via realtime subscription
   };
 
   const handleVote = async (votedForId: string) => {
@@ -574,42 +583,17 @@ const Game = () => {
                 </div>
               )}
 
-              {/* Clue Phase */}
+              {/* Clue Phase - Turn Based */}
               {gamePhase === "clue" && (
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <h2 className="font-display text-2xl mb-2">Ronda {lobby?.current_round}</h2>
-                    {myPlayer?.is_impostor ? (
-                      <div className="p-4 rounded-lg bg-primary/20 border border-primary">
-                        <p className="text-lg text-primary font-bold text-glow-red">¡Eres el Impostor!</p>
-                        <p className="text-sm text-muted-foreground mt-2">No conoces la palabra. ¡Finge que la sabes!</p>
-                      </div>
-                    ) : (
-                      <div className="p-4 rounded-lg bg-safe/20 border border-safe">
-                        <p className="text-lg font-bold text-safe text-glow-green">La palabra es:</p>
-                        <p className="text-3xl font-display mt-2">{lobby?.secret_word}</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-4">
-                    <p className="text-center text-muted-foreground">
-                      Da una pista que haga referencia a la palabra sin revelarla
-                    </p>
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Tu pista..."
-                        value={currentClue}
-                        onChange={(e) => setCurrentClue(e.target.value)}
-                        className="bg-muted border-border"
-                        onKeyDown={(e) => e.key === "Enter" && handleSubmitClue()}
-                      />
-                      <Button onClick={handleSubmitClue} className="btn-safe" disabled={!currentClue.trim()}>
-                        <Send className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+                <CluePhase
+                  currentRound={lobby?.current_round || 1}
+                  isImpostor={myPlayer?.is_impostor || false}
+                  secretWord={lobby?.secret_word || null}
+                  isMyTurn={isMyTurn}
+                  currentTurnPlayer={currentTurnPlayer}
+                  turnOrder={turnOrder}
+                  onSubmitClue={handleSubmitClue}
+                />
               )}
 
               {/* Voting Phase */}

@@ -83,34 +83,40 @@ export type Database = {
       lobby_players: {
         Row: {
           bot_name: string | null
+          connection_status: string | null
           id: string
           is_bot: boolean | null
           is_eliminated: boolean | null
           is_impostor: boolean | null
           is_ready: boolean | null
           joined_at: string
+          last_seen_at: string | null
           lobby_id: string
           user_id: string
         }
         Insert: {
           bot_name?: string | null
+          connection_status?: string | null
           id?: string
           is_bot?: boolean | null
           is_eliminated?: boolean | null
           is_impostor?: boolean | null
           is_ready?: boolean | null
           joined_at?: string
+          last_seen_at?: string | null
           lobby_id: string
           user_id: string
         }
         Update: {
           bot_name?: string | null
+          connection_status?: string | null
           id?: string
           is_bot?: boolean | null
           is_eliminated?: boolean | null
           is_impostor?: boolean | null
           is_ready?: boolean | null
           joined_at?: string
+          last_seen_at?: string | null
           lobby_id?: string
           user_id?: string
         }
@@ -247,7 +253,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_stale_players: {
+        Args: { p_lobby_id: string; p_timeout_seconds?: number }
+        Returns: {
+          removed_user_id: string
+          removed_username: string
+        }[]
+      }
       generate_lobby_code: { Args: never; Returns: string }
+      update_player_heartbeat: {
+        Args: { p_player_id: string; p_status?: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
