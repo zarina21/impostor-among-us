@@ -38,34 +38,44 @@ export const getRandomBotClue = (isImpostor: boolean): string => {
   return clues[Math.floor(Math.random() * clues.length)];
 };
 
+// Submit a single bot clue (for turn-based system)
+export const submitBotClue = async (
+  lobbyId: string,
+  round: number,
+  botUserId: string,
+  isImpostor: boolean
+) => {
+  // Check if bot already submitted a clue this round
+  const { data: existingClue } = await supabase
+    .from("round_clues")
+    .select("id")
+    .eq("lobby_id", lobbyId)
+    .eq("round", round)
+    .eq("user_id", botUserId)
+    .maybeSingle();
+
+  if (!existingClue) {
+    const clue = getRandomBotClue(isImpostor);
+    
+    // Add small delay to seem more natural (1-3 seconds)
+    await new Promise((resolve) => setTimeout(resolve, Math.random() * 2000 + 1000));
+    
+    await supabase.from("round_clues").insert({
+      lobby_id: lobbyId,
+      round: round,
+      user_id: botUserId,
+      clue: clue,
+    });
+  }
+};
+
 export const submitBotClues = async (
   lobbyId: string,
   round: number,
   botPlayers: Array<{ user_id: string; is_impostor: boolean }>
 ) => {
   for (const bot of botPlayers) {
-    // Check if bot already submitted a clue this round
-    const { data: existingClue } = await supabase
-      .from("round_clues")
-      .select("id")
-      .eq("lobby_id", lobbyId)
-      .eq("round", round)
-      .eq("user_id", bot.user_id)
-      .maybeSingle();
-
-    if (!existingClue) {
-      const clue = getRandomBotClue(bot.is_impostor);
-      
-      // Add small delay to seem more natural
-      await new Promise((resolve) => setTimeout(resolve, Math.random() * 2000 + 500));
-      
-      await supabase.from("round_clues").insert({
-        lobby_id: lobbyId,
-        round: round,
-        user_id: bot.user_id,
-        clue: clue,
-      });
-    }
+    await submitBotClue(lobbyId, round, bot.user_id, bot.is_impostor);
   }
 };
 
