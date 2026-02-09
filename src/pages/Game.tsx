@@ -675,7 +675,7 @@ const Game = () => {
                       {myPlayer?.is_ready ? "Listo ✓" : "Listo"}
                     </Button>
                     
-                    {isHost && players.filter((p) => p.is_ready).length >= (lobby?.min_players || 5) && (
+                    {isHost && players.filter((p) => p.is_ready).length >= (lobby?.min_players || 3) && (
                       <Button onClick={handleStartGame} className="btn-impostor">
                         Iniciar Partida
                       </Button>
