@@ -15,6 +15,7 @@ interface Player {
   is_ready: boolean;
   is_bot: boolean;
   bot_name: string | null;
+  points?: number;
   profiles: {
     username: string;
   };
@@ -121,6 +122,12 @@ const PlayerCard = ({
           <Badge variant="outline" className="text-xs text-gold border-gold">
             <Clock className="w-3 h-3 mr-1" />
             Pendiente
+          </Badge>
+        )}
+        {/* Show points during game */}
+        {gamePhase !== "waiting" && player.points !== undefined && (
+          <Badge className="text-xs bg-primary/20 text-primary border-primary/30">
+            {player.points} pts
           </Badge>
         )}
       </div>

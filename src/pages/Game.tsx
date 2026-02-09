@@ -12,6 +12,9 @@ import PlayerCard from "@/components/game/PlayerCard";
 import InviteFriends from "@/components/game/InviteFriends";
 import BotManager from "@/components/game/BotManager";
 import CluePhase from "@/components/game/CluePhase";
+import Scoreboard from "@/components/game/Scoreboard";
+import RoundResults from "@/components/game/RoundResults";
+import GameWinner from "@/components/game/GameWinner";
 import { useFriendships } from "@/hooks/useFriendships";
 import { useTurnSystem } from "@/hooks/useTurnSystem";
 import { useBotTurnManager } from "@/hooks/useBotTurnManager";
@@ -24,9 +27,16 @@ interface Player {
   is_ready: boolean;
   is_bot: boolean;
   bot_name: string | null;
+  points: number;
   profiles: {
     username: string;
   };
+}
+
+interface PointChange {
+  playerId: string;
+  pointsGained: number;
+  reason: string;
 }
 
 interface Lobby {
@@ -69,6 +79,11 @@ const Game = () => {
   const [gamePhase, setGamePhase] = useState<"waiting" | "clue" | "voting" | "results" | "finished">("waiting");
   const [loading, setLoading] = useState(true);
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
+  const [pointsToWin] = useState(10);
+  const [pointChanges, setPointChanges] = useState<PointChange[]>([]);
+  const [impostorCaught, setImpostorCaught] = useState(false);
+  const [caughtImpostor, setCaughtImpostor] = useState<Player | null>(null);
+  const [winner, setWinner] = useState<Player | null>(null);
   const { getFriendStatus } = useFriendships(user);
 
   // Turn system hook
@@ -107,10 +122,10 @@ const Game = () => {
 
     setLobby(lobbyData);
 
-    // Fetch players (including bot fields)
+    // Fetch players (including bot fields and points)
     const { data: playersData } = await supabase
       .from("lobby_players")
-      .select("id, user_id, is_impostor, is_eliminated, is_ready, is_bot, bot_name")
+      .select("id, user_id, is_impostor, is_eliminated, is_ready, is_bot, bot_name, points")
       .eq("lobby_id", lobbyData.id);
 
     if (playersData && playersData.length > 0) {
@@ -136,6 +151,7 @@ const Game = () => {
         ...p,
         is_bot: p.is_bot || false,
         bot_name: p.bot_name || null,
+        points: p.points || 0,
         profiles: {
           username: p.is_bot
             ? p.bot_name || "Bot"
@@ -389,55 +405,129 @@ const Game = () => {
     toast.success("¡Voto registrado!");
   };
 
-  const handleNextRound = async () => {
+  const handleProcessVotes = async () => {
     if (!lobby || !user || lobby.host_id !== user.id) return;
 
-    // Count votes and eliminate player with most votes
+    // Count votes
     const voteCounts: Record<string, number> = {};
     votes.forEach((v) => {
       voteCounts[v.voted_for_id] = (voteCounts[v.voted_for_id] || 0) + 1;
     });
 
     const maxVotes = Math.max(...Object.values(voteCounts));
-    const eliminatedId = Object.keys(voteCounts).find((id) => voteCounts[id] === maxVotes);
+    const votedPlayerId = Object.keys(voteCounts).find((id) => voteCounts[id] === maxVotes);
+    const votedPlayer = players.find((p) => p.user_id === votedPlayerId);
 
-    if (eliminatedId) {
-      const eliminatedPlayer = players.find((p) => p.user_id === eliminatedId);
-      if (eliminatedPlayer) {
-        await supabase
-          .from("lobby_players")
-          .update({ is_eliminated: true })
-          .eq("id", eliminatedPlayer.id);
+    const changes: PointChange[] = [];
+    let caught = false;
+    let caughtPlayer: Player | null = null;
 
-        // Check win conditions
-        const remainingImpostors = players.filter((p) => p.is_impostor && !p.is_eliminated && p.id !== eliminatedPlayer.id);
-        const remainingInnocents = players.filter((p) => !p.is_impostor && !p.is_eliminated && p.id !== eliminatedPlayer.id);
-
-        if (remainingImpostors.length === 0) {
-          // Innocents win
-          await supabase.from("lobbies").update({ status: "finished" }).eq("id", lobby.id);
-          toast.success("¡Los inocentes ganan! El impostor fue eliminado.");
-          return;
+    if (votedPlayer) {
+      if (votedPlayer.is_impostor) {
+        // Crewmates caught the impostor - each crewmate gets 1 point
+        caught = true;
+        caughtPlayer = votedPlayer;
+        
+        const crewmates = players.filter((p) => !p.is_impostor);
+        for (const crewmate of crewmates) {
+          await supabase
+            .from("lobby_players")
+            .update({ points: crewmate.points + 1 })
+            .eq("id", crewmate.id);
+          
+          changes.push({
+            playerId: crewmate.user_id,
+            pointsGained: 1,
+            reason: "Descubrió al impostor",
+          });
         }
-
-        if (remainingImpostors.length >= remainingInnocents.length) {
-          // Impostors win
-          await supabase.from("lobbies").update({ status: "finished" }).eq("id", lobby.id);
-          toast.error("¡El impostor gana! Ha engañado a todos.");
-          return;
+      } else {
+        // Impostor survives - gets 1 point
+        const impostor = players.find((p) => p.is_impostor);
+        if (impostor) {
+          await supabase
+            .from("lobby_players")
+            .update({ points: impostor.points + 1 })
+            .eq("id", impostor.id);
+          
+          changes.push({
+            playerId: impostor.user_id,
+            pointsGained: 1,
+            reason: "Sobrevivió la ronda",
+          });
         }
       }
     }
 
-    // Next round
-    await supabase
-      .from("lobbies")
-      .update({ current_round: lobby.current_round + 1 })
-      .eq("id", lobby.id);
+    setPointChanges(changes);
+    setImpostorCaught(caught);
+    setCaughtImpostor(caughtPlayer);
+    setGamePhase("results");
+  };
+
+  const handleNextRound = async () => {
+    if (!lobby || !user || lobby.host_id !== user.id) return;
+
+    // Check if anyone has won
+    const updatedPlayers = await supabase
+      .from("lobby_players")
+      .select("id, user_id, is_impostor, points")
+      .eq("lobby_id", lobby.id);
+
+    if (updatedPlayers.data) {
+      const winningPlayer = updatedPlayers.data.find((p) => p.points >= pointsToWin);
+      if (winningPlayer) {
+        await supabase.from("lobbies").update({ status: "finished" }).eq("id", lobby.id);
+        const fullWinner = players.find((p) => p.id === winningPlayer.id);
+        if (fullWinner) {
+          setWinner({ ...fullWinner, points: winningPlayer.points });
+        }
+        setGamePhase("finished");
+        return;
+      }
+    }
+
+    // Get a new word for the next round
+    const { data: categories } = await supabase
+      .from("word_categories")
+      .select("words");
+
+    if (categories && categories.length > 0) {
+      const allWords = categories.flatMap((c) => c.words);
+      const randomWord = allWords[Math.floor(Math.random() * allWords.length)];
+      
+      await supabase
+        .from("lobbies")
+        .update({ 
+          current_round: lobby.current_round + 1,
+          secret_word: randomWord 
+        })
+        .eq("id", lobby.id);
+    } else {
+      await supabase
+        .from("lobbies")
+        .update({ current_round: lobby.current_round + 1 })
+        .eq("id", lobby.id);
+    }
+
+    // Reassign impostor for next round
+    const readyPlayers = players.filter((p) => p.is_ready);
+    const shuffledPlayers = [...readyPlayers].sort(() => Math.random() - 0.5);
+    const newImpostorIds = shuffledPlayers.slice(0, lobby.impostor_count).map((p) => p.id);
+
+    for (const player of readyPlayers) {
+      await supabase
+        .from("lobby_players")
+        .update({ is_impostor: newImpostorIds.includes(player.id) })
+        .eq("id", player.id);
+    }
 
     setMyVote(null);
     setClues([]);
     setVotes([]);
+    setPointChanges([]);
+    setImpostorCaught(false);
+    setCaughtImpostor(null);
   };
 
   const handleLeaveLobby = async () => {
@@ -549,6 +639,17 @@ const Game = () => {
                   />
                 </div>
               )}
+
+              {/* Scoreboard during game */}
+              {gamePhase !== "waiting" && user && (
+                <div className="pt-4 border-t border-border mt-4">
+                  <Scoreboard
+                    players={players}
+                    pointsToWin={pointsToWin}
+                    currentUserId={user.id}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -614,43 +715,48 @@ const Game = () => {
                     ))}
                   </div>
 
-                  {myVote && (
-                    <p className="text-center text-muted-foreground">
-                      Esperando a que todos voten... ({votes.length}/{activePlayers.length})
-                    </p>
-                  )}
+                  {myVote ? (
+                    <div className="space-y-4">
+                      <p className="text-center text-muted-foreground">
+                        Esperando a que todos voten... ({votes.length}/{activePlayers.length})
+                      </p>
+                      {isHost && votes.length === activePlayers.length && (
+                        <div className="text-center">
+                          <Button onClick={handleProcessVotes} className="btn-impostor">
+                            Ver Resultados
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
               )}
 
-              {/* Results Phase */}
               {gamePhase === "results" && (
-                <div className="space-y-6 text-center">
-                  <h2 className="font-display text-2xl">Resultados de la votación</h2>
-                  
-                  <div className="space-y-2">
-                    {players.filter((p) => !p.is_eliminated).map((player) => {
-                      const voteCount = votes.filter((v) => v.voted_for_id === player.user_id).length;
-                      return (
-                        <div key={player.id} className="p-3 rounded-lg bg-muted/50 flex justify-between items-center">
-                          <span>{player.profiles.username}</span>
-                          <Badge variant={voteCount > 0 ? "destructive" : "secondary"}>
-                            {voteCount} votos
-                          </Badge>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {isHost && (
-                    <Button onClick={handleNextRound} className="btn-impostor">
-                      Siguiente Ronda
-                    </Button>
-                  )}
-                </div>
+                <RoundResults
+                  players={players}
+                  votes={votes}
+                  pointChanges={pointChanges}
+                  impostorCaught={impostorCaught}
+                  caughtImpostor={caughtImpostor}
+                  isHost={isHost || false}
+                  onNextRound={handleNextRound}
+                  secretWord={lobby?.secret_word || null}
+                />
               )}
 
               {/* Finished Phase */}
-              {gamePhase === "finished" && (
+              {gamePhase === "finished" && winner && (
+                <GameWinner
+                  players={players}
+                  winner={winner}
+                  pointsToWin={pointsToWin}
+                  onReturnToLobby={() => navigate("/lobby")}
+                />
+              )}
+
+              {/* Fallback finished state */}
+              {gamePhase === "finished" && !winner && (
                 <div className="space-y-6 text-center">
                   <h2 className="font-display text-3xl">¡Partida terminada!</h2>
                   
