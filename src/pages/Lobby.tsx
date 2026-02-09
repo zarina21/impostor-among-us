@@ -79,6 +79,9 @@ const Lobby = () => {
         .insert({
           code,
           host_id: user.id,
+          min_players: 3,
+          max_players: 8,
+          impostor_count: 1,
         })
         .select()
         .single();
