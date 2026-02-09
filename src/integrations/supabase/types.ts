@@ -41,6 +41,41 @@ export type Database = {
         }
         Relationships: []
       }
+      game_settings: {
+        Row: {
+          created_at: string
+          crewmate_points_for_catch: number
+          id: string
+          impostor_points_per_round: number
+          lobby_id: string
+          points_to_win: number
+        }
+        Insert: {
+          created_at?: string
+          crewmate_points_for_catch?: number
+          id?: string
+          impostor_points_per_round?: number
+          lobby_id: string
+          points_to_win?: number
+        }
+        Update: {
+          created_at?: string
+          crewmate_points_for_catch?: number
+          id?: string
+          impostor_points_per_round?: number
+          lobby_id?: string
+          points_to_win?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_settings_lobby_id_fkey"
+            columns: ["lobby_id"]
+            isOneToOne: false
+            referencedRelation: "lobbies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lobbies: {
         Row: {
           code: string
@@ -92,6 +127,7 @@ export type Database = {
           joined_at: string
           last_seen_at: string | null
           lobby_id: string
+          points: number
           user_id: string
         }
         Insert: {
@@ -105,6 +141,7 @@ export type Database = {
           joined_at?: string
           last_seen_at?: string | null
           lobby_id: string
+          points?: number
           user_id: string
         }
         Update: {
@@ -118,6 +155,7 @@ export type Database = {
           joined_at?: string
           last_seen_at?: string | null
           lobby_id?: string
+          points?: number
           user_id?: string
         }
         Relationships: [
