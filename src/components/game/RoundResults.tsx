@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, XCircle, TrendingUp, Trophy } from "lucide-react";
+import { CheckCircle, XCircle, TrendingUp, Trophy, Skull, Shield } from "lucide-react";
+import CrewAvatar from "./CrewAvatar";
 
 interface Player {
   id: string;
@@ -46,63 +47,61 @@ const RoundResults = ({
 }: RoundResultsProps) => {
   return (
     <div className="space-y-6 text-center">
-      <div className="space-y-2">
+      {/* Result Banner */}
+      <div className="space-y-3">
         {impostorCaught ? (
-          <>
-            <CheckCircle className="w-16 h-16 mx-auto text-safe" />
-            <h2 className="font-display text-2xl text-safe">
+          <div className="animate-bounce-in">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-safe/10 border-2 border-safe/30 mb-3">
+              <Shield className="w-10 h-10 text-safe" />
+            </div>
+            <h2 className="font-display text-2xl font-bold text-safe text-glow-green">
               ¡Impostor descubierto!
             </h2>
-            <p className="text-muted-foreground">
-              <span className="font-semibold text-foreground">
-                {caughtImpostor?.profiles.username}
-              </span>{" "}
+            <p className="text-sm text-muted-foreground mt-2">
+              <span className="font-display font-semibold text-foreground">{caughtImpostor?.profiles.username}</span>{" "}
               era el impostor. La palabra era:{" "}
-              <span className="font-bold text-primary">{secretWord}</span>
+              <span className="font-display font-bold text-safe">{secretWord}</span>
             </p>
-          </>
+          </div>
         ) : (
-          <>
-            <XCircle className="w-16 h-16 mx-auto text-primary" />
-            <h2 className="font-display text-2xl text-primary">
+          <div className="animate-bounce-in">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 border-2 border-primary/30 mb-3">
+              <Skull className="w-10 h-10 text-primary" />
+            </div>
+            <h2 className="font-display text-2xl font-bold text-primary text-glow-red">
               ¡El impostor sobrevive!
             </h2>
-            <p className="text-muted-foreground">
+            <p className="text-sm text-muted-foreground mt-2">
               Los tripulantes votaron a un inocente. El impostor gana un punto.
             </p>
-          </>
+          </div>
         )}
       </div>
 
       {/* Vote Results */}
       <div className="space-y-2">
-        <h3 className="font-semibold flex items-center justify-center gap-2">
-          <TrendingUp className="w-4 h-4" />
-          Resultados de la votación
-        </h3>
-        <div className="grid gap-2">
+        <h3 className="font-display text-sm font-semibold text-muted-foreground">Votación</h3>
+        <div className="grid gap-1.5">
           {players.map((player) => {
-            const voteCount = votes.filter(
-              (v) => v.voted_for_id === player.user_id
-            ).length;
-            const wasCaught =
-              impostorCaught && caughtImpostor?.user_id === player.user_id;
+            const voteCount = votes.filter((v) => v.voted_for_id === player.user_id).length;
+            const wasCaught = impostorCaught && caughtImpostor?.user_id === player.user_id;
 
             return (
               <div
                 key={player.id}
-                className={`p-3 rounded-lg flex justify-between items-center ${
-                  wasCaught
-                    ? "bg-primary/20 border border-primary"
-                    : "bg-muted/50"
+                className={`p-3 rounded-xl flex items-center gap-3 ${
+                  wasCaught ? "bg-primary/10 border border-primary/30" : "bg-muted/30"
                 }`}
               >
-                <span className={wasCaught ? "text-primary font-semibold" : ""}>
+                <CrewAvatar name={player.profiles.username} size="sm" />
+                <span className={`flex-1 text-left text-sm ${wasCaught ? "text-primary font-display font-semibold" : ""}`}>
                   {player.profiles.username}
                 </span>
-                <Badge variant={voteCount > 0 ? "destructive" : "secondary"}>
-                  {voteCount} votos
-                </Badge>
+                {voteCount > 0 && (
+                  <Badge variant="destructive" className="text-[10px]">
+                    {voteCount} {voteCount === 1 ? "voto" : "votos"}
+                  </Badge>
+                )}
               </div>
             );
           })}
@@ -112,26 +111,21 @@ const RoundResults = ({
       {/* Point Changes */}
       {pointChanges.length > 0 && (
         <div className="space-y-2">
-          <h3 className="font-semibold flex items-center justify-center gap-2">
-            <Trophy className="w-4 h-4 text-gold" />
-            Puntos ganados esta ronda
+          <h3 className="font-display text-sm font-semibold text-gold flex items-center justify-center gap-1.5">
+            <Trophy className="w-4 h-4" />
+            Puntos ganados
           </h3>
-          <div className="grid gap-2">
+          <div className="grid gap-1.5">
             {pointChanges.map((change, index) => {
               const player = players.find((p) => p.user_id === change.playerId);
               return (
-                <div
-                  key={index}
-                  className="p-3 rounded-lg bg-safe/10 border border-safe/30 flex justify-between items-center"
-                >
-                  <span>{player?.profiles.username}</span>
+                <div key={index} className="p-3 rounded-xl bg-safe/5 border border-safe/20 flex items-center gap-3">
+                  <CrewAvatar name={player?.profiles.username || "?"} size="sm" />
+                  <span className="flex-1 text-left text-sm">{player?.profiles.username}</span>
                   <div className="flex items-center gap-2">
-                    <Badge className="bg-safe text-safe-foreground">
+                    <Badge className="bg-safe/20 text-safe border-safe/30 text-[10px]">
                       +{change.pointsGained} pts
                     </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {change.reason}
-                    </span>
                   </div>
                 </div>
               );
@@ -141,7 +135,8 @@ const RoundResults = ({
       )}
 
       {isHost && (
-        <Button onClick={onNextRound} className="btn-impostor">
+        <Button onClick={onNextRound} className="btn-impostor px-8 py-5">
+          <Skull className="w-5 h-5 mr-2" />
           Siguiente Ronda
         </Button>
       )}

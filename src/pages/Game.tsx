@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Eye, ArrowLeft, Copy } from "lucide-react";
+import { Users, Eye, ArrowLeft, Copy, Shield, Skull, Zap } from "lucide-react";
 import { toast } from "sonner";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -15,6 +15,7 @@ import CluePhase from "@/components/game/CluePhase";
 import Scoreboard from "@/components/game/Scoreboard";
 import RoundResults from "@/components/game/RoundResults";
 import GameWinner from "@/components/game/GameWinner";
+import CrewAvatar from "@/components/game/CrewAvatar";
 import { useFriendships } from "@/hooks/useFriendships";
 import { useTurnSystem } from "@/hooks/useTurnSystem";
 import { useBotTurnManager } from "@/hooks/useBotTurnManager";
@@ -86,7 +87,6 @@ const Game = () => {
   const [winner, setWinner] = useState<Player | null>(null);
   const { getFriendStatus } = useFriendships(user);
 
-  // Turn system hook
   const { isMyTurn, currentTurnPlayer, turnOrder, allCluesSubmitted } = useTurnSystem({
     players,
     clues,
@@ -94,7 +94,6 @@ const Game = () => {
     currentUserId: user?.id,
   });
 
-  // Bot turn manager - automatically triggers bot turns
   useBotTurnManager({
     players,
     clues,
@@ -103,11 +102,9 @@ const Game = () => {
     gamePhase,
   });
 
-  // Fetch game data
   const fetchGameData = useCallback(async () => {
     if (!code || !user) return;
 
-    // Fetch lobby
     const { data: lobbyData, error: lobbyError } = await supabase
       .from("lobbies")
       .select("*")
@@ -122,19 +119,16 @@ const Game = () => {
 
     setLobby(lobbyData);
 
-    // Fetch players (including bot fields and points)
     const { data: playersData } = await supabase
       .from("lobby_players")
       .select("id, user_id, is_impostor, is_eliminated, is_ready, is_bot, bot_name, points")
       .eq("lobby_id", lobbyData.id);
 
     if (playersData && playersData.length > 0) {
-      // Separate bots and real players
       const realPlayerIds = playersData
         .filter((p) => !p.is_bot)
         .map((p) => p.user_id);
 
-      // Fetch profiles only for real players
       let profilesMap = new Map<string, string>();
       if (realPlayerIds.length > 0) {
         const { data: profilesData } = await supabase
@@ -165,7 +159,6 @@ const Game = () => {
       setMyPlayer(null);
     }
 
-    // Fetch clues for current round
     let fetchedClues: typeof clues = [];
     let fetchedVotes: typeof votes = [];
     
@@ -177,7 +170,6 @@ const Game = () => {
         .eq("round", lobbyData.current_round);
 
       if (cluesData && cluesData.length > 0) {
-        // Fetch profiles for clue authors
         const clueUserIds = cluesData.map((c) => c.user_id);
         const { data: clueProfilesData } = await supabase
           .from("profiles")
@@ -197,7 +189,6 @@ const Game = () => {
         setClues([]);
       }
 
-      // Fetch votes
       const { data: votesData } = await supabase
         .from("votes")
         .select("voted_for_id, voter_id")
@@ -214,27 +205,22 @@ const Game = () => {
       }
     }
 
-    // Determine game phase based on turn system
     if (lobbyData.status === "waiting") {
       setGamePhase("waiting");
     } else if (lobbyData.status === "finished") {
       setGamePhase("finished");
     } else if (lobbyData.status === "playing") {
-      // Get active players for this round
       const activePlayersInRound = playersData?.filter(
         (p) => !p.is_eliminated && p.is_ready
       ) || [];
       
-      // Check if all active players have submitted clues
       const allPlayersSubmittedClues = activePlayersInRound.every((p) =>
         fetchedClues.some((c) => c.user_id === p.user_id)
       );
 
       if (!allPlayersSubmittedClues) {
-        // Still in clue phase (turn-based)
         setGamePhase("clue");
       } else {
-        // All clues submitted, check voting
         const myVoteExists = fetchedVotes.find((v) => v.voter_id === user.id);
         if (!myVoteExists) {
           setGamePhase("voting");
@@ -263,48 +249,24 @@ const Game = () => {
     }
   }, [user, code, fetchGameData]);
 
-  // Setup realtime subscription
   useEffect(() => {
     if (!lobby) return;
 
     const realtimeChannel = supabase
       .channel(`game-${lobby.id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "lobby_players", filter: `lobby_id=eq.${lobby.id}` },
-        () => fetchGameData()
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "lobbies", filter: `id=eq.${lobby.id}` },
-        () => fetchGameData()
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "round_clues", filter: `lobby_id=eq.${lobby.id}` },
-        () => fetchGameData()
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "votes", filter: `lobby_id=eq.${lobby.id}` },
-        () => fetchGameData()
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "lobby_players", filter: `lobby_id=eq.${lobby.id}` }, () => fetchGameData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "lobbies", filter: `id=eq.${lobby.id}` }, () => fetchGameData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "round_clues", filter: `lobby_id=eq.${lobby.id}` }, () => fetchGameData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "votes", filter: `lobby_id=eq.${lobby.id}` }, () => fetchGameData())
       .subscribe();
 
     setChannel(realtimeChannel);
-
-    return () => {
-      realtimeChannel.unsubscribe();
-    };
+    return () => { realtimeChannel.unsubscribe(); };
   }, [lobby?.id, fetchGameData]);
 
   const handleReady = async () => {
     if (!myPlayer) return;
-
-    await supabase
-      .from("lobby_players")
-      .update({ is_ready: !myPlayer.is_ready })
-      .eq("id", myPlayer.id);
+    await supabase.from("lobby_players").update({ is_ready: !myPlayer.is_ready }).eq("id", myPlayer.id);
   };
 
   const handleStartGame = async () => {
@@ -316,11 +278,7 @@ const Game = () => {
       return;
     }
 
-    // Get random word
-    const { data: categories } = await supabase
-      .from("word_categories")
-      .select("words");
-
+    const { data: categories } = await supabase.from("word_categories").select("words");
     if (!categories || categories.length === 0) {
       toast.error("Error al obtener palabras");
       return;
@@ -329,34 +287,18 @@ const Game = () => {
     const allWords = categories.flatMap((c) => c.words);
     const randomWord = allWords[Math.floor(Math.random() * allWords.length)];
 
-    // Assign impostors randomly
     const shuffledPlayers = [...readyPlayers].sort(() => Math.random() - 0.5);
     const impostorIds = shuffledPlayers.slice(0, lobby.impostor_count).map((p) => p.id);
 
-    // Update players
     for (const player of readyPlayers) {
-      await supabase
-        .from("lobby_players")
-        .update({ is_impostor: impostorIds.includes(player.id) })
-        .eq("id", player.id);
+      await supabase.from("lobby_players").update({ is_impostor: impostorIds.includes(player.id) }).eq("id", player.id);
     }
 
-    // Start the game
-    await supabase
-      .from("lobbies")
-      .update({ 
-        status: "playing", 
-        current_round: 1,
-        secret_word: randomWord 
-      })
-      .eq("id", lobby.id);
-
+    await supabase.from("lobbies").update({ status: "playing", current_round: 1, secret_word: randomWord }).eq("id", lobby.id);
     toast.success("¡La partida ha comenzado!");
 
-    // For turn-based system: only trigger first bot's clue if they're first in turn order
     const sortedPlayers = [...readyPlayers].sort((a, b) => a.id.localeCompare(b.id));
     const firstPlayer = sortedPlayers[0];
-    
     if (firstPlayer && firstPlayer.is_bot) {
       const isFirstPlayerImpostor = impostorIds.includes(firstPlayer.id);
       import("@/lib/botBehavior").then(({ submitBotClue }) => {
@@ -367,40 +309,19 @@ const Game = () => {
 
   const handleSubmitClue = async (clue: string) => {
     if (!lobby || !user || !clue.trim()) return;
-
     const { error } = await supabase.from("round_clues").insert({
-      lobby_id: lobby.id,
-      round: lobby.current_round,
-      user_id: user.id,
-      clue: clue.trim(),
+      lobby_id: lobby.id, round: lobby.current_round, user_id: user.id, clue: clue.trim(),
     });
-
-    if (error) {
-      toast.error("Error al enviar pista");
-      return;
-    }
-
+    if (error) { toast.error("Error al enviar pista"); return; }
     toast.success("¡Pista enviada!");
-    
-    // The useBotTurnManager hook will automatically trigger the next bot's turn
-    // when the clues state updates via realtime subscription
   };
 
   const handleVote = async (votedForId: string) => {
     if (!lobby || !user || myVote) return;
-
     const { error } = await supabase.from("votes").insert({
-      lobby_id: lobby.id,
-      round: lobby.current_round,
-      voter_id: user.id,
-      voted_for_id: votedForId,
+      lobby_id: lobby.id, round: lobby.current_round, voter_id: user.id, voted_for_id: votedForId,
     });
-
-    if (error) {
-      toast.error("Error al votar");
-      return;
-    }
-
+    if (error) { toast.error("Error al votar"); return; }
     setMyVote(votedForId);
     toast.success("¡Voto registrado!");
   };
@@ -408,11 +329,8 @@ const Game = () => {
   const handleProcessVotes = async () => {
     if (!lobby || !user || lobby.host_id !== user.id) return;
 
-    // Count votes
     const voteCounts: Record<string, number> = {};
-    votes.forEach((v) => {
-      voteCounts[v.voted_for_id] = (voteCounts[v.voted_for_id] || 0) + 1;
-    });
+    votes.forEach((v) => { voteCounts[v.voted_for_id] = (voteCounts[v.voted_for_id] || 0) + 1; });
 
     const maxVotes = Math.max(...Object.values(voteCounts));
     const votedPlayerId = Object.keys(voteCounts).find((id) => voteCounts[id] === maxVotes);
@@ -424,37 +342,18 @@ const Game = () => {
 
     if (votedPlayer) {
       if (votedPlayer.is_impostor) {
-        // Crewmates caught the impostor - each crewmate gets 1 point
         caught = true;
         caughtPlayer = votedPlayer;
-        
         const crewmates = players.filter((p) => !p.is_impostor);
         for (const crewmate of crewmates) {
-          await supabase
-            .from("lobby_players")
-            .update({ points: crewmate.points + 1 })
-            .eq("id", crewmate.id);
-          
-          changes.push({
-            playerId: crewmate.user_id,
-            pointsGained: 1,
-            reason: "Descubrió al impostor",
-          });
+          await supabase.from("lobby_players").update({ points: crewmate.points + 1 }).eq("id", crewmate.id);
+          changes.push({ playerId: crewmate.user_id, pointsGained: 1, reason: "Descubrió al impostor" });
         }
       } else {
-        // Impostor survives - gets 1 point
         const impostor = players.find((p) => p.is_impostor);
         if (impostor) {
-          await supabase
-            .from("lobby_players")
-            .update({ points: impostor.points + 1 })
-            .eq("id", impostor.id);
-          
-          changes.push({
-            playerId: impostor.user_id,
-            pointsGained: 1,
-            reason: "Sobrevivió la ronda",
-          });
+          await supabase.from("lobby_players").update({ points: impostor.points + 1 }).eq("id", impostor.id);
+          changes.push({ playerId: impostor.user_id, pointsGained: 1, reason: "Sobrevivió la ronda" });
         }
       }
     }
@@ -468,58 +367,32 @@ const Game = () => {
   const handleNextRound = async () => {
     if (!lobby || !user || lobby.host_id !== user.id) return;
 
-    // Check if anyone has won
-    const updatedPlayers = await supabase
-      .from("lobby_players")
-      .select("id, user_id, is_impostor, points")
-      .eq("lobby_id", lobby.id);
-
+    const updatedPlayers = await supabase.from("lobby_players").select("id, user_id, is_impostor, points").eq("lobby_id", lobby.id);
     if (updatedPlayers.data) {
       const winningPlayer = updatedPlayers.data.find((p) => p.points >= pointsToWin);
       if (winningPlayer) {
         await supabase.from("lobbies").update({ status: "finished" }).eq("id", lobby.id);
         const fullWinner = players.find((p) => p.id === winningPlayer.id);
-        if (fullWinner) {
-          setWinner({ ...fullWinner, points: winningPlayer.points });
-        }
+        if (fullWinner) setWinner({ ...fullWinner, points: winningPlayer.points });
         setGamePhase("finished");
         return;
       }
     }
 
-    // Get a new word for the next round
-    const { data: categories } = await supabase
-      .from("word_categories")
-      .select("words");
-
+    const { data: categories } = await supabase.from("word_categories").select("words");
     if (categories && categories.length > 0) {
       const allWords = categories.flatMap((c) => c.words);
       const randomWord = allWords[Math.floor(Math.random() * allWords.length)];
-      
-      await supabase
-        .from("lobbies")
-        .update({ 
-          current_round: lobby.current_round + 1,
-          secret_word: randomWord 
-        })
-        .eq("id", lobby.id);
+      await supabase.from("lobbies").update({ current_round: lobby.current_round + 1, secret_word: randomWord }).eq("id", lobby.id);
     } else {
-      await supabase
-        .from("lobbies")
-        .update({ current_round: lobby.current_round + 1 })
-        .eq("id", lobby.id);
+      await supabase.from("lobbies").update({ current_round: lobby.current_round + 1 }).eq("id", lobby.id);
     }
 
-    // Reassign impostor for next round
     const readyPlayers = players.filter((p) => p.is_ready);
     const shuffledPlayers = [...readyPlayers].sort(() => Math.random() - 0.5);
     const newImpostorIds = shuffledPlayers.slice(0, lobby.impostor_count).map((p) => p.id);
-
     for (const player of readyPlayers) {
-      await supabase
-        .from("lobby_players")
-        .update({ is_impostor: newImpostorIds.includes(player.id) })
-        .eq("id", player.id);
+      await supabase.from("lobby_players").update({ is_impostor: newImpostorIds.includes(player.id) }).eq("id", player.id);
     }
 
     setMyVote(null);
@@ -532,22 +405,14 @@ const Game = () => {
 
   const handleLeaveLobby = async () => {
     if (!lobby || !user || !myPlayer) return;
-
-    // If host is leaving, transfer host to another player
     if (lobby.host_id === user.id) {
       const otherPlayers = players.filter((p) => p.user_id !== user.id && !p.is_eliminated);
       if (otherPlayers.length > 0) {
-        // Transfer host to first available player
-        await supabase
-          .from("lobbies")
-          .update({ host_id: otherPlayers[0].user_id })
-          .eq("id", lobby.id);
+        await supabase.from("lobbies").update({ host_id: otherPlayers[0].user_id }).eq("id", lobby.id);
       } else {
-        // No other players, delete the lobby
         await supabase.from("lobbies").delete().eq("id", lobby.id);
       }
     }
-
     await supabase.from("lobby_players").delete().eq("id", myPlayer.id);
     navigate("/lobby");
   };
@@ -555,74 +420,101 @@ const Game = () => {
   const copyCode = () => {
     if (code) {
       navigator.clipboard.writeText(code);
-      toast.success("Código copiado");
+      toast.success("¡Código copiado!");
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Cargando...</div>
+      <div className="min-h-screen flex items-center justify-center space-bg">
+        <div className="stars" />
+        <div className="relative z-10 text-center">
+          <div className="animate-float mb-4">
+            <Eye className="w-12 h-12 text-primary mx-auto" style={{ filter: "drop-shadow(0 0 20px hsl(0 72% 51% / 0.5))" }} />
+          </div>
+          <p className="text-muted-foreground font-display animate-pulse">Cargando partida...</p>
+        </div>
       </div>
     );
   }
 
   const isHost = user && lobby && lobby.host_id === user.id;
   const activePlayers = players.filter((p) => !p.is_eliminated);
+  const readyCount = players.filter((p) => p.is_ready).length;
+
+  // Phase info
+  const phaseConfig = {
+    waiting: { label: "Sala de espera", icon: <Users className="w-4 h-4" />, color: "bg-muted/50 text-muted-foreground border-border" },
+    clue: { label: `Ronda ${lobby?.current_round} — Pistas`, icon: <Eye className="w-4 h-4" />, color: "bg-safe/10 text-safe border-safe/30" },
+    voting: { label: `Ronda ${lobby?.current_round} — Votación`, icon: <Skull className="w-4 h-4" />, color: "bg-primary/10 text-primary border-primary/30" },
+    results: { label: "Resultados", icon: <Zap className="w-4 h-4" />, color: "bg-gold/10 text-gold border-gold/30" },
+    finished: { label: "Partida terminada", icon: <Shield className="w-4 h-4" />, color: "bg-safe/10 text-safe border-safe/30" },
+  };
+
+  const phase = phaseConfig[gamePhase];
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
-      {/* Background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-primary/10 to-transparent rounded-full blur-3xl" />
-      </div>
+    <div className="min-h-screen p-4 md:p-6 space-bg">
+      <div className="stars" />
 
-      <div className="max-w-4xl mx-auto relative z-10">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <Button variant="ghost" onClick={handleLeaveLobby} className="text-muted-foreground">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Salir
+      <div className="max-w-5xl mx-auto relative z-10">
+        {/* Top Bar */}
+        <div className="flex items-center justify-between mb-4">
+          <Button variant="ghost" onClick={handleLeaveLobby} className="text-muted-foreground hover:text-foreground gap-2">
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">Salir</span>
           </Button>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-lg font-mono tracking-widest px-4 py-2">
-              {code}
-            </Badge>
-            <Button variant="ghost" size="icon" onClick={copyCode}>
-              <Copy className="w-4 h-4" />
-            </Button>
+
+          {/* Phase indicator */}
+          <div className={`phase-pill border ${phase.color}`}>
+            {phase.icon}
+            {phase.label}
           </div>
+
+          {/* Room code */}
+          <button
+            onClick={copyCode}
+            className="flex items-center gap-2 card-game px-4 py-2 hover:bg-muted/50 transition-colors cursor-pointer border border-border"
+          >
+            <span className="text-xs text-muted-foreground">SALA</span>
+            <span className="font-mono font-bold tracking-widest text-foreground">{code}</span>
+            <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+          </button>
         </div>
 
-        {/* Game Content */}
-        <div className="grid md:grid-cols-3 gap-6">
-          {/* Players List */}
-          <Card className="card-game border-border md:col-span-1">
-            <CardHeader>
-              <CardTitle className="font-display flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Jugadores ({activePlayers.length}/{lobby?.max_players})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {players.map((player) => (
-                <PlayerCard
-                  key={player.id}
-                  player={player}
-                  user={user!}
-                  hostId={lobby?.host_id || ""}
-                  lobbyId={lobby?.id || ""}
-                  gamePhase={gamePhase}
-                  myVote={myVote}
-                  onVote={handleVote}
-                  onRefresh={fetchGameData}
-                  friendStatus={getFriendStatus(player.user_id)}
-                />
-              ))}
+        {/* Main Layout */}
+        <div className="grid md:grid-cols-12 gap-4">
+          {/* Left Sidebar - Players */}
+          <div className="md:col-span-4 lg:col-span-3">
+            <div className="card-game border-border p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-display font-semibold text-sm flex items-center gap-2">
+                  <Users className="w-4 h-4 text-muted-foreground" />
+                  Tripulación
+                </h3>
+                <span className="text-xs text-muted-foreground">{activePlayers.length}/{lobby?.max_players}</span>
+              </div>
 
-              {/* Invite friends and bot manager in waiting phase */}
+              <div className="space-y-1.5">
+                {players.map((player) => (
+                  <PlayerCard
+                    key={player.id}
+                    player={player}
+                    user={user!}
+                    hostId={lobby?.host_id || ""}
+                    lobbyId={lobby?.id || ""}
+                    gamePhase={gamePhase}
+                    myVote={myVote}
+                    onVote={handleVote}
+                    onRefresh={fetchGameData}
+                    friendStatus={getFriendStatus(player.user_id)}
+                  />
+                ))}
+              </div>
+
+              {/* Waiting phase actions */}
               {gamePhase === "waiting" && user && lobby && (
-                <div className="pt-2 border-t border-border mt-4 space-y-2">
+                <div className="pt-3 border-t border-border space-y-2">
                   <InviteFriends
                     user={user}
                     lobbyCode={lobby.code}
@@ -642,49 +534,71 @@ const Game = () => {
 
               {/* Scoreboard during game */}
               {gamePhase !== "waiting" && user && (
-                <div className="pt-4 border-t border-border mt-4">
-                  <Scoreboard
-                    players={players}
-                    pointsToWin={pointsToWin}
-                    currentUserId={user.id}
-                  />
+                <div className="pt-3 border-t border-border">
+                  <Scoreboard players={players} pointsToWin={pointsToWin} currentUserId={user.id} />
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          {/* Main Game Area */}
-          <Card className="card-game border-border md:col-span-2">
-            <CardContent className="pt-6">
+          {/* Main Area */}
+          <div className="md:col-span-8 lg:col-span-9">
+            <div className="card-game border-border p-6 min-h-[400px] flex flex-col">
               {/* Waiting Phase */}
               {gamePhase === "waiting" && (
-                <div className="text-center space-y-6">
+                <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
                   <div className="animate-float">
-                    <Eye className="w-16 h-16 mx-auto text-primary" style={{ filter: "drop-shadow(0 0 20px hsl(0 72% 51% / 0.5))" }} />
+                    <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto" style={{
+                      background: "var(--gradient-impostor)",
+                      boxShadow: "0 0 40px hsl(0 72% 51% / 0.3)",
+                    }}>
+                      <Eye className="w-12 h-12 text-primary-foreground" />
+                    </div>
                   </div>
-                  <h2 className="font-display text-2xl">Esperando jugadores...</h2>
-                  <p className="text-muted-foreground">
-                    {players.filter((p) => p.is_ready).length}/{lobby?.min_players} jugadores listos
-                  </p>
-                  
-                  <div className="flex gap-4 justify-center">
+
+                  <div>
+                    <h2 className="font-display text-3xl font-bold mb-2">Esperando jugadores</h2>
+                    <p className="text-muted-foreground">
+                      <span className="font-display font-bold text-foreground">{readyCount}</span>
+                      <span className="mx-1">/</span>
+                      <span>{lobby?.min_players} necesarios</span>
+                    </p>
+                  </div>
+
+                  {/* Ready progress */}
+                  <div className="w-full max-w-xs">
+                    <div className="h-3 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${Math.min((readyCount / (lobby?.min_players || 3)) * 100, 100)}%`,
+                          background: readyCount >= (lobby?.min_players || 3)
+                            ? "var(--gradient-safe)"
+                            : "var(--gradient-impostor)",
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
                     <Button
                       onClick={handleReady}
-                      className={myPlayer?.is_ready ? "btn-safe" : "btn-impostor"}
+                      className={`${myPlayer?.is_ready ? "btn-safe" : "btn-impostor"} px-8 py-5 text-base`}
                     >
-                      {myPlayer?.is_ready ? "Listo ✓" : "Listo"}
+                      {myPlayer?.is_ready ? "✓ Listo" : "Estoy Listo"}
                     </Button>
-                    
-                    {isHost && players.filter((p) => p.is_ready).length >= (lobby?.min_players || 3) && (
-                      <Button onClick={handleStartGame} className="btn-impostor">
-                        Iniciar Partida
+
+                    {isHost && readyCount >= (lobby?.min_players || 3) && (
+                      <Button onClick={handleStartGame} className="btn-impostor px-8 py-5 text-base animate-bounce-in">
+                        <Skull className="w-5 h-5 mr-2" />
+                        ¡Iniciar Partida!
                       </Button>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* Clue Phase - Turn Based */}
+              {/* Clue Phase */}
               {gamePhase === "clue" && (
                 <CluePhase
                   currentRound={lobby?.current_round || 1}
@@ -701,37 +615,54 @@ const Game = () => {
               {gamePhase === "voting" && (
                 <div className="space-y-6">
                   <div className="text-center">
-                    <h2 className="font-display text-2xl mb-2">¡Hora de votar!</h2>
-                    <p className="text-muted-foreground">Elige quién crees que es el impostor</p>
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 border border-primary/30 mb-4">
+                      <Skull className="w-8 h-8 text-primary" />
+                    </div>
+                    <h2 className="font-display text-2xl font-bold mb-1">¿Quién es el impostor?</h2>
+                    <p className="text-sm text-muted-foreground">Revisa las pistas y vota por el sospechoso</p>
                   </div>
 
+                  {/* Clues display */}
                   <div className="space-y-2">
-                    <h3 className="font-semibold">Pistas de esta ronda:</h3>
-                    {clues.map((clue) => (
-                      <div key={clue.id} className="p-3 rounded-lg bg-muted/50 flex justify-between">
-                        <span className="font-medium">{clue.profiles?.username}:</span>
-                        <span className="text-muted-foreground">"{clue.clue}"</span>
-                      </div>
-                    ))}
+                    <h3 className="font-display text-sm font-semibold text-muted-foreground">Pistas de esta ronda:</h3>
+                    <div className="grid gap-2">
+                      {clues.map((clue) => (
+                        <div key={clue.id} className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 border border-border">
+                          <CrewAvatar name={clue.profiles?.username || "?"} size="sm" />
+                          <div className="flex-1 min-w-0">
+                            <span className="font-display font-semibold text-sm">{clue.profiles?.username}</span>
+                            <p className="text-sm text-muted-foreground">"{clue.clue}"</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
+                  {/* Vote on player cards in sidebar */}
                   {myVote ? (
-                    <div className="space-y-4">
-                      <p className="text-center text-muted-foreground">
-                        Esperando a que todos voten... ({votes.length}/{activePlayers.length})
-                      </p>
+                    <div className="text-center space-y-4">
+                      <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-safe/10 border border-safe/30 text-safe text-sm">
+                        <Shield className="w-4 h-4" />
+                        Voto registrado — Esperando a los demás ({votes.length}/{activePlayers.length})
+                      </div>
                       {isHost && votes.length === activePlayers.length && (
-                        <div className="text-center">
-                          <Button onClick={handleProcessVotes} className="btn-impostor">
+                        <div>
+                          <Button onClick={handleProcessVotes} className="btn-impostor px-8 py-5 animate-bounce-in">
+                            <Zap className="w-5 h-5 mr-2" />
                             Ver Resultados
                           </Button>
                         </div>
                       )}
                     </div>
-                  ) : null}
+                  ) : (
+                    <p className="text-center text-xs text-muted-foreground">
+                      Selecciona un jugador de la lista a la izquierda para votar
+                    </p>
+                  )}
                 </div>
               )}
 
+              {/* Results */}
               {gamePhase === "results" && (
                 <RoundResults
                   players={players}
@@ -745,7 +676,7 @@ const Game = () => {
                 />
               )}
 
-              {/* Finished Phase */}
+              {/* Finished */}
               {gamePhase === "finished" && winner && (
                 <GameWinner
                   players={players}
@@ -755,30 +686,25 @@ const Game = () => {
                 />
               )}
 
-              {/* Fallback finished state */}
               {gamePhase === "finished" && !winner && (
-                <div className="space-y-6 text-center">
-                  <h2 className="font-display text-3xl">¡Partida terminada!</h2>
-                  
-                  <div className="space-y-2">
-                    <p className="text-lg">La palabra era: <strong>{lobby?.secret_word}</strong></p>
-                    <div className="mt-4">
-                      <p className="text-muted-foreground mb-2">Impostores:</p>
-                      {players.filter((p) => p.is_impostor).map((p) => (
-                        <Badge key={p.id} variant="destructive" className="mx-1">
-                          {p.profiles.username}
-                        </Badge>
-                      ))}
-                    </div>
+                <div className="flex-1 flex flex-col items-center justify-center space-y-6 text-center">
+                  <h2 className="font-display text-3xl font-bold">¡Partida terminada!</h2>
+                  <p className="text-lg">La palabra era: <strong className="text-safe">{lobby?.secret_word}</strong></p>
+                  <div>
+                    <p className="text-muted-foreground mb-2">Impostores:</p>
+                    {players.filter((p) => p.is_impostor).map((p) => (
+                      <Badge key={p.id} variant="destructive" className="mx-1">
+                        {p.profiles.username}
+                      </Badge>
+                    ))}
                   </div>
-
-                  <Button onClick={() => navigate("/lobby")} className="btn-safe">
+                  <Button onClick={() => navigate("/lobby")} className="btn-safe px-8 py-5">
                     Volver al Lobby
                   </Button>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
     </div>
