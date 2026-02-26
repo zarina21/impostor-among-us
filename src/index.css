@@ -4,39 +4,36 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Adivina el Impostor - Design System
-   Theme: Mysterious, dark, social deduction game
-   Inspired by: Among Us, Spyfall
-*/
+/* Adivina el Impostor - Among Us Inspired Design System */
 
 @layer base {
   :root {
-    /* Dark mysterious background */
-    --background: 240 15% 8%;
-    --foreground: 0 0% 95%;
+    /* Deep space background */
+    --background: 230 25% 7%;
+    --foreground: 210 20% 95%;
 
-    /* Cards with subtle depth */
-    --card: 240 12% 12%;
-    --card-foreground: 0 0% 95%;
+    /* Cards - spaceship panel feel */
+    --card: 225 20% 12%;
+    --card-foreground: 210 20% 95%;
 
     /* Popover/Modal */
-    --popover: 240 12% 14%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 225 20% 14%;
+    --popover-foreground: 210 20% 95%;
 
     /* Primary - Crimson Red (Impostor danger) */
     --primary: 0 72% 51%;
     --primary-foreground: 0 0% 100%;
 
     /* Secondary - Deep Purple (Mystery) */
-    --secondary: 270 50% 25%;
+    --secondary: 260 45% 28%;
     --secondary-foreground: 0 0% 95%;
 
     /* Muted elements */
-    --muted: 240 10% 18%;
-    --muted-foreground: 240 5% 55%;
+    --muted: 225 15% 16%;
+    --muted-foreground: 220 10% 50%;
 
-    /* Accent - Emerald (Safe players) */
-    --accent: 160 60% 45%;
+    /* Accent - Emerald (Safe/Crewmate) */
+    --accent: 155 65% 42%;
     --accent-foreground: 0 0% 100%;
 
     /* Destructive */
@@ -44,39 +41,44 @@
     --destructive-foreground: 0 0% 100%;
 
     /* Borders and inputs */
-    --border: 240 10% 20%;
-    --input: 240 10% 18%;
+    --border: 225 15% 18%;
+    --input: 225 15% 16%;
     --ring: 0 72% 51%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
 
     /* Custom game colors */
     --impostor: 0 72% 51%;
-    --safe: 160 60% 45%;
-    --mystery: 270 50% 40%;
-    --warning: 45 93% 58%;
-    --gold: 45 93% 58%;
+    --safe: 155 65% 42%;
+    --mystery: 260 45% 45%;
+    --warning: 42 95% 55%;
+    --gold: 42 95% 55%;
+    --cyan: 185 70% 50%;
 
     /* Gradients */
-    --gradient-impostor: linear-gradient(135deg, hsl(0 72% 51%) 0%, hsl(340 70% 45%) 100%);
-    --gradient-safe: linear-gradient(135deg, hsl(160 60% 45%) 0%, hsl(180 55% 40%) 100%);
-    --gradient-mystery: linear-gradient(135deg, hsl(270 50% 40%) 0%, hsl(300 45% 35%) 100%);
-    --gradient-dark: linear-gradient(180deg, hsl(240 15% 10%) 0%, hsl(240 15% 5%) 100%);
-    --gradient-card: linear-gradient(145deg, hsl(240 12% 14%) 0%, hsl(240 12% 10%) 100%);
+    --gradient-impostor: linear-gradient(135deg, hsl(0 72% 51%) 0%, hsl(340 65% 42%) 100%);
+    --gradient-safe: linear-gradient(135deg, hsl(155 65% 42%) 0%, hsl(175 60% 38%) 100%);
+    --gradient-mystery: linear-gradient(135deg, hsl(260 45% 45%) 0%, hsl(290 40% 38%) 100%);
+    --gradient-dark: linear-gradient(180deg, hsl(230 25% 9%) 0%, hsl(230 30% 4%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(225 20% 14%) 0%, hsl(225 22% 10%) 100%);
+    --gradient-space: radial-gradient(ellipse at 20% 50%, hsl(260 30% 15% / 0.5) 0%, transparent 60%),
+                      radial-gradient(ellipse at 80% 20%, hsl(200 30% 12% / 0.4) 0%, transparent 50%),
+                      radial-gradient(ellipse at 50% 80%, hsl(0 40% 12% / 0.3) 0%, transparent 50%);
 
     /* Shadows */
     --shadow-glow-red: 0 0 30px hsl(0 72% 51% / 0.3);
-    --shadow-glow-green: 0 0 30px hsl(160 60% 45% / 0.3);
-    --shadow-glow-purple: 0 0 30px hsl(270 50% 40% / 0.3);
+    --shadow-glow-green: 0 0 30px hsl(155 65% 42% / 0.3);
+    --shadow-glow-purple: 0 0 30px hsl(260 45% 45% / 0.3);
+    --shadow-glow-cyan: 0 0 30px hsl(185 70% 50% / 0.3);
 
     /* Sidebar */
-    --sidebar-background: 240 12% 10%;
-    --sidebar-foreground: 0 0% 95%;
+    --sidebar-background: 225 20% 10%;
+    --sidebar-foreground: 210 20% 95%;
     --sidebar-primary: 0 72% 51%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 10% 18%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 240 10% 20%;
+    --sidebar-accent: 225 15% 18%;
+    --sidebar-accent-foreground: 210 20% 95%;
+    --sidebar-border: 225 15% 18%;
     --sidebar-ring: 0 72% 51%;
   }
 }
@@ -95,31 +97,39 @@
 
 @layer components {
   .btn-impostor {
-    @apply bg-primary text-primary-foreground font-display font-semibold;
+    @apply bg-primary text-primary-foreground font-display font-semibold rounded-2xl;
     background: var(--gradient-impostor);
     box-shadow: var(--shadow-glow-red);
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   .btn-impostor:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0 40px hsl(0 72% 51% / 0.5);
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 0 50px hsl(0 72% 51% / 0.5);
+  }
+
+  .btn-impostor:active {
+    transform: translateY(0) scale(0.98);
   }
 
   .btn-safe {
-    @apply bg-accent text-accent-foreground font-display font-semibold;
+    @apply bg-accent text-accent-foreground font-display font-semibold rounded-2xl;
     background: var(--gradient-safe);
     box-shadow: var(--shadow-glow-green);
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   .btn-safe:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0 40px hsl(160 60% 45% / 0.5);
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 0 50px hsl(155 65% 42% / 0.5);
+  }
+
+  .btn-safe:active {
+    transform: translateY(0) scale(0.98);
   }
 
   .card-game {
-    @apply rounded-xl border border-border;
+    @apply rounded-2xl border border-border;
     background: var(--gradient-card);
     backdrop-filter: blur(10px);
   }
@@ -129,7 +139,58 @@
   }
 
   .text-glow-green {
-    text-shadow: 0 0 20px hsl(160 60% 45% / 0.6);
+    text-shadow: 0 0 20px hsl(155 65% 42% / 0.6);
+  }
+
+  .text-glow-cyan {
+    text-shadow: 0 0 20px hsl(185 70% 50% / 0.6);
+  }
+
+  /* Among Us style crew avatar */
+  .crew-avatar {
+    @apply relative inline-flex items-center justify-center rounded-full font-display font-bold uppercase;
+    width: 40px;
+    height: 40px;
+    font-size: 14px;
+  }
+
+  .crew-avatar-lg {
+    width: 64px;
+    height: 64px;
+    font-size: 22px;
+  }
+
+  .crew-avatar-xl {
+    width: 96px;
+    height: 96px;
+    font-size: 32px;
+  }
+
+  /* Space background with stars */
+  .space-bg {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .space-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--gradient-space);
+    pointer-events: none;
+  }
+
+  /* Visor effect */
+  .visor {
+    @apply relative overflow-hidden;
+    background: linear-gradient(135deg, hsl(185 70% 50% / 0.3), hsl(200 70% 40% / 0.15));
+    border: 2px solid hsl(185 70% 50% / 0.4);
+  }
+
+  /* Phase indicator pill */
+  .phase-pill {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-display font-semibold;
+    backdrop-filter: blur(8px);
   }
 
   .animate-pulse-slow {
@@ -139,6 +200,73 @@
   .animate-float {
     animation: float 6s ease-in-out infinite;
   }
+
+  .animate-wiggle {
+    animation: wiggle 0.6s ease-in-out;
+  }
+
+  .animate-bounce-in {
+    animation: bounce-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .animate-slide-in-right {
+    animation: slide-in-right 0.4s ease-out;
+  }
+}
+
+/* Stars background */
+.stars {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.stars::before,
+.stars::after {
+  content: '';
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: white;
+  box-shadow:
+    25vw 10vh 0 0 rgba(255,255,255,0.3),
+    50vw 25vh 0 0 rgba(255,255,255,0.2),
+    75vw 5vh 0 0 rgba(255,255,255,0.4),
+    10vw 40vh 0 0 rgba(255,255,255,0.2),
+    60vw 60vh 0 0 rgba(255,255,255,0.3),
+    85vw 45vh 0 0 rgba(255,255,255,0.15),
+    30vw 80vh 0 0 rgba(255,255,255,0.25),
+    90vw 70vh 0 0 rgba(255,255,255,0.2),
+    15vw 90vh 0 0 rgba(255,255,255,0.3),
+    45vw 50vh 0 0 rgba(255,255,255,0.15),
+    70vw 85vh 0 0 rgba(255,255,255,0.2),
+    5vw 60vh 0 0 rgba(255,255,255,0.1),
+    35vw 15vh 0 0 rgba(255,255,255,0.25),
+    80vw 30vh 0 0 rgba(255,255,255,0.2),
+    55vw 75vh 0 0 rgba(255,255,255,0.15),
+    20vw 55vh 0 0 rgba(255,255,255,0.3),
+    65vw 20vh 0 0 rgba(255,255,255,0.2),
+    40vw 95vh 0 0 rgba(255,255,255,0.1),
+    95vw 15vh 0 0 rgba(255,255,255,0.25),
+    8vw 75vh 0 0 rgba(255,255,255,0.2);
+  animation: twinkle 4s ease-in-out infinite;
+}
+
+.stars::after {
+  width: 1px;
+  height: 1px;
+  box-shadow:
+    12vw 22vh 0 0 rgba(255,255,255,0.2),
+    42vw 35vh 0 0 rgba(255,255,255,0.15),
+    72vw 55vh 0 0 rgba(255,255,255,0.25),
+    18vw 70vh 0 0 rgba(255,255,255,0.1),
+    58vw 12vh 0 0 rgba(255,255,255,0.2),
+    88vw 82vh 0 0 rgba(255,255,255,0.15),
+    32vw 45vh 0 0 rgba(255,255,255,0.2),
+    78vw 10vh 0 0 rgba(255,255,255,0.1);
+  animation: twinkle 5s ease-in-out infinite reverse;
 }
 
 @keyframes float {
@@ -146,6 +274,29 @@
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-10px);
+    transform: translateY(-12px);
   }
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-5deg); }
+  75% { transform: rotate(5deg); }
+}
+
+@keyframes bounce-in {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.05); }
+  70% { transform: scale(0.95); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }

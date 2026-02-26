@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, User, LogIn, Gamepad2 } from "lucide-react";
+import { Users, User, LogIn, Gamepad2, Skull } from "lucide-react";
 import { toast } from "sonner";
 
 interface StartMenuProps {
@@ -25,23 +25,21 @@ const StartMenu = ({ onClose }: StartMenuProps) => {
     
     setLoading(true);
     try {
-      // Sign in anonymously
       const { data, error } = await supabase.auth.signInAnonymously();
-      
       if (error) throw error;
       
       if (data.user) {
-        // Create a temporary profile for the guest
+        // Create profile for the guest with their chosen name
         const { error: profileError } = await supabase
           .from("profiles")
-          .insert({
+          .upsert({
             user_id: data.user.id,
             username: guestName.trim(),
             games_played: 0,
             games_won: 0,
-          });
+          }, { onConflict: 'user_id' });
           
-        if (profileError && !profileError.message.includes("duplicate")) {
+        if (profileError) {
           throw profileError;
         }
         
@@ -55,39 +53,37 @@ const StartMenu = ({ onClose }: StartMenuProps) => {
     }
   };
 
-  const handleGoToLogin = () => {
-    navigate("/auth?mode=login");
-  };
-
-  const handleGoToRegister = () => {
-    navigate("/auth");
-  };
+  const handleGoToLogin = () => navigate("/auth?mode=login");
+  const handleGoToRegister = () => navigate("/auth");
 
   if (mode === "guest") {
     return (
-      <Card className="card-game border-border w-full max-w-md animate-scale-in">
+      <Card className="card-game border-border w-full max-w-md animate-bounce-in">
         <CardHeader className="text-center">
-          <div className="mx-auto w-16 h-16 rounded-full bg-accent flex items-center justify-center mb-4" style={{ boxShadow: "var(--shadow-glow-green)" }}>
-            <Gamepad2 className="w-8 h-8 text-accent-foreground" />
+          <div className="mx-auto w-20 h-20 rounded-full flex items-center justify-center mb-4" style={{
+            background: "var(--gradient-safe)",
+            boxShadow: "var(--shadow-glow-green)",
+          }}>
+            <Gamepad2 className="w-10 h-10 text-accent-foreground" />
           </div>
           <CardTitle className="font-display text-2xl">Jugar como Invitado</CardTitle>
-          <CardDescription>Ingresa un nombre para empezar</CardDescription>
+          <CardDescription>Elige tu nombre — es lo que verán los demás</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Input
             placeholder="Tu nombre en el juego"
             value={guestName}
             onChange={(e) => setGuestName(e.target.value)}
-            className="bg-muted border-border text-center text-lg"
+            className="bg-muted/50 border-border text-center text-lg h-14 rounded-xl font-display"
             maxLength={20}
             autoFocus
           />
           <Button 
-            className="w-full btn-safe" 
+            className="w-full btn-safe py-5 text-base" 
             onClick={handleGuestPlay}
             disabled={loading || !guestName.trim()}
           >
-            {loading ? "Cargando..." : "Comenzar a Jugar"}
+            {loading ? "Cargando..." : "¡A jugar!"}
           </Button>
           <Button 
             variant="ghost" 
@@ -103,35 +99,31 @@ const StartMenu = ({ onClose }: StartMenuProps) => {
 
   if (mode === "login") {
     return (
-      <Card className="card-game border-border w-full max-w-md animate-scale-in">
+      <Card className="card-game border-border w-full max-w-md animate-bounce-in">
         <CardHeader className="text-center">
-          <div className="mx-auto w-16 h-16 rounded-full bg-primary flex items-center justify-center mb-4" style={{ boxShadow: "var(--shadow-glow-red)" }}>
-            <Users className="w-8 h-8 text-primary-foreground" />
+          <div className="mx-auto w-20 h-20 rounded-full flex items-center justify-center mb-4" style={{
+            background: "var(--gradient-impostor)",
+            boxShadow: "var(--shadow-glow-red)",
+          }}>
+            <Users className="w-10 h-10 text-primary-foreground" />
           </div>
           <CardTitle className="font-display text-2xl">Cuenta de Usuario</CardTitle>
           <CardDescription>Guarda tu progreso y añade amigos</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Button 
-            className="w-full btn-impostor" 
-            onClick={handleGoToLogin}
-          >
+          <Button className="w-full btn-impostor py-5 text-base" onClick={handleGoToLogin}>
             <LogIn className="w-4 h-4 mr-2" />
             Iniciar Sesión
           </Button>
           <Button 
             variant="outline"
-            className="w-full border-border hover:bg-muted" 
+            className="w-full border-border hover:bg-muted py-5 text-base rounded-2xl" 
             onClick={handleGoToRegister}
           >
             <User className="w-4 h-4 mr-2" />
             Crear Cuenta
           </Button>
-          <Button 
-            variant="ghost" 
-            className="w-full text-muted-foreground"
-            onClick={() => setMode("menu")}
-          >
+          <Button variant="ghost" className="w-full text-muted-foreground" onClick={() => setMode("menu")}>
             Volver
           </Button>
         </CardContent>
@@ -140,17 +132,20 @@ const StartMenu = ({ onClose }: StartMenuProps) => {
   }
 
   return (
-    <Card className="card-game border-border w-full max-w-md animate-scale-in">
+    <Card className="card-game border-border w-full max-w-md animate-bounce-in">
       <CardHeader className="text-center">
-        <div className="mx-auto w-16 h-16 rounded-full bg-secondary flex items-center justify-center mb-4" style={{ boxShadow: "var(--shadow-glow-purple)" }}>
-          <Gamepad2 className="w-8 h-8 text-secondary-foreground" />
+        <div className="mx-auto w-20 h-20 rounded-full flex items-center justify-center mb-4" style={{
+          background: "var(--gradient-mystery)",
+          boxShadow: "var(--shadow-glow-purple)",
+        }}>
+          <Skull className="w-10 h-10 text-primary-foreground" />
         </div>
         <CardTitle className="font-display text-2xl">¿Cómo quieres jugar?</CardTitle>
         <CardDescription>Elige una opción para continuar</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <Button 
-          className="w-full btn-safe h-14 text-lg" 
+          className="w-full btn-safe h-16 text-lg rounded-2xl" 
           onClick={() => setMode("guest")}
         >
           <Gamepad2 className="w-5 h-5 mr-2" />
@@ -161,12 +156,12 @@ const StartMenu = ({ onClose }: StartMenuProps) => {
             <span className="w-full border-t border-border" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">o</span>
+            <span className="bg-card px-2 text-muted-foreground font-display">o</span>
           </div>
         </div>
         <Button 
           variant="outline"
-          className="w-full h-14 text-lg border-border hover:bg-muted" 
+          className="w-full h-16 text-lg border-border hover:bg-muted rounded-2xl" 
           onClick={() => setMode("login")}
         >
           <LogIn className="w-5 h-5 mr-2" />

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, Eye, Clock } from "lucide-react";
+import { Send, Eye, Clock, Skull, Shield } from "lucide-react";
 import TurnIndicator from "./TurnIndicator";
+import CrewAvatar from "./CrewAvatar";
 
 interface Player {
   id: string;
@@ -66,24 +67,30 @@ const CluePhase = ({
     <div className="space-y-6">
       {/* Round header */}
       <div className="text-center">
-        <h2 className="font-display text-2xl mb-2">Ronda {currentRound}</h2>
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-muted/50 border border-border text-xs font-display mb-4">
+          Ronda {currentRound}
+        </div>
 
         {/* Role info */}
         {isImpostor ? (
-          <div className="p-4 rounded-lg bg-primary/20 border border-primary">
-            <p className="text-lg text-primary font-bold text-glow-red">
+          <div className="p-5 rounded-2xl bg-primary/10 border border-primary/30 space-y-2">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary/20 border border-primary/30 mb-2">
+              <Skull className="w-7 h-7 text-primary" />
+            </div>
+            <p className="text-lg text-primary font-display font-bold text-glow-red">
               ¡Eres el Impostor!
             </p>
-            <p className="text-sm text-muted-foreground mt-2">
+            <p className="text-sm text-muted-foreground">
               No conoces la palabra. ¡Finge que la sabes!
             </p>
           </div>
         ) : (
-          <div className="p-4 rounded-lg bg-safe/20 border border-safe">
-            <p className="text-lg font-bold text-safe text-glow-green">
-              La palabra es:
-            </p>
-            <p className="text-3xl font-display mt-2">{secretWord}</p>
+          <div className="p-5 rounded-2xl bg-safe/10 border border-safe/30 space-y-2">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-safe/20 border border-safe/30 mb-2">
+              <Shield className="w-7 h-7 text-safe" />
+            </div>
+            <p className="text-sm font-display font-semibold text-safe">La palabra secreta es:</p>
+            <p className="text-3xl font-display font-bold text-glow-green">{secretWord}</p>
           </div>
         )}
       </div>

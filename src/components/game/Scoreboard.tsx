@@ -1,6 +1,6 @@
 import { Trophy, Star, Target } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import CrewAvatar from "./CrewAvatar";
 
 interface Player {
   id: string;
@@ -21,60 +21,46 @@ interface ScoreboardProps {
 }
 
 const Scoreboard = ({ players, pointsToWin, currentUserId }: ScoreboardProps) => {
-  // Sort players by points (descending)
   const sortedPlayers = [...players].sort((a, b) => b.points - a.points);
-  const leader = sortedPlayers[0];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-display text-lg flex items-center gap-2">
-          <Trophy className="w-5 h-5 text-gold" />
+        <h3 className="font-display text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+          <Trophy className="w-3.5 h-3.5 text-gold" />
           Puntuación
         </h3>
-        <Badge variant="outline" className="text-gold border-gold">
-          <Target className="w-3 h-3 mr-1" />
-          Meta: {pointsToWin} pts
-        </Badge>
+        <span className="text-[10px] text-gold font-display">Meta: {pointsToWin}</span>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-1.5">
         {sortedPlayers.map((player, index) => {
           const isMe = player.user_id === currentUserId;
-          const isLeader = player.id === leader?.id && player.points > 0;
-          const progressPercent = (player.points / pointsToWin) * 100;
+          const progressPercent = Math.min((player.points / pointsToWin) * 100, 100);
 
           return (
-            <div
-              key={player.id}
-              className={`p-3 rounded-lg transition-all ${
-                isMe
-                  ? "bg-primary/10 border border-primary/30"
-                  : "bg-muted/30"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground font-mono text-sm">
-                    #{index + 1}
-                  </span>
-                  {isLeader && (
-                    <Star className="w-4 h-4 text-gold fill-gold" />
-                  )}
-                  <span className={isMe ? "font-semibold" : ""}>
+            <div key={player.id} className={`flex items-center gap-2 p-2 rounded-lg ${isMe ? "bg-primary/5" : ""}`}>
+              <CrewAvatar name={player.profiles.username} size="sm" isBot={player.is_bot} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-xs font-display truncate">
                     {player.profiles.username}
+                    {isMe && <span className="text-primary ml-1">(Tú)</span>}
                   </span>
-                  {isMe && (
-                    <Badge variant="secondary" className="text-xs">
-                      Tú
-                    </Badge>
-                  )}
+                  <span className="text-xs font-display font-bold text-gold">{player.points}</span>
                 </div>
-                <span className="font-display text-lg text-primary">
-                  {player.points} pts
-                </span>
+                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700 ease-out"
+                    style={{
+                      width: `${progressPercent}%`,
+                      background: index === 0 && player.points > 0
+                        ? "var(--gradient-safe)"
+                        : "hsl(var(--muted-foreground) / 0.3)",
+                    }}
+                  />
+                </div>
               </div>
-              <Progress value={progressPercent} className="h-2" />
             </div>
           );
         })}

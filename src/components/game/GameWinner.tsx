@@ -1,6 +1,7 @@
-import { Trophy, Medal, Star, Home } from "lucide-react";
+import { Trophy, Medal, Star, Home, Skull, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import CrewAvatar from "./CrewAvatar";
 
 interface Player {
   id: string;
@@ -19,101 +20,80 @@ interface GameWinnerProps {
   onReturnToLobby: () => void;
 }
 
-const GameWinner = ({
-  players,
-  winner,
-  pointsToWin,
-  onReturnToLobby,
-}: GameWinnerProps) => {
+const GameWinner = ({ players, winner, pointsToWin, onReturnToLobby }: GameWinnerProps) => {
   const sortedPlayers = [...players].sort((a, b) => b.points - a.points);
 
   return (
-    <div className="space-y-8 text-center">
+    <div className="flex-1 flex flex-col items-center justify-center space-y-8 text-center py-6">
       {/* Winner Celebration */}
-      <div className="space-y-4">
-      <div className="relative inline-block">
-          <Trophy
-            className="w-24 h-24 mx-auto text-gold animate-pulse"
-            style={{ filter: "drop-shadow(0 0 30px hsl(var(--gold) / 0.5))" }}
-          />
-          <Star
-            className="absolute -top-2 -right-2 w-8 h-8 text-gold fill-current animate-bounce"
-          />
+      <div className="space-y-4 animate-bounce-in">
+        <div className="relative">
+          <CrewAvatar name={winner.profiles.username} size="xl" />
+          <div className="absolute -top-3 -right-3">
+            <Trophy
+              className="w-10 h-10 text-gold animate-pulse"
+              style={{ filter: "drop-shadow(0 0 15px hsl(42 95% 55% / 0.5))" }}
+            />
+          </div>
         </div>
-        <h2 className="font-display text-4xl bg-gradient-to-r from-gold to-yellow-400 bg-clip-text text-transparent">
-          ¡{winner.profiles.username} gana!
-        </h2>
-        <p className="text-lg text-muted-foreground">
-          Ha alcanzado {pointsToWin} puntos primero
-        </p>
+
+        <div>
+          <h2 className="font-display text-3xl font-bold bg-gradient-to-r from-gold to-yellow-400 bg-clip-text text-transparent">
+            ¡{winner.profiles.username} gana!
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Alcanzó {pointsToWin} puntos
+          </p>
+        </div>
+
         <Badge
           variant="outline"
-          className={`text-lg px-4 py-2 ${
+          className={`text-sm px-4 py-1.5 ${
             winner.is_impostor
-              ? "border-primary text-primary"
-              : "border-safe text-safe"
+              ? "border-primary/50 text-primary"
+              : "border-safe/50 text-safe"
           }`}
         >
-          {winner.is_impostor ? "Impostor" : "Tripulante"}
+          {winner.is_impostor ? (
+            <><Skull className="w-3.5 h-3.5 mr-1" /> Impostor</>
+          ) : (
+            <><Shield className="w-3.5 h-3.5 mr-1" /> Tripulante</>
+          )}
         </Badge>
       </div>
 
       {/* Final Standings */}
-      <div className="space-y-4">
-        <h3 className="font-display text-xl">Clasificación Final</h3>
-        <div className="space-y-2">
+      <div className="w-full max-w-md space-y-3">
+        <h3 className="font-display text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+          Clasificación Final
+        </h3>
+        <div className="space-y-1.5">
           {sortedPlayers.map((player, index) => {
             const isWinner = player.id === winner.id;
-            const medalColors = [
-              "text-gold",
-              "text-gray-400",
-              "text-amber-700",
-            ];
+            const medalEmojis = ["🥇", "🥈", "🥉"];
 
             return (
               <div
                 key={player.id}
-                className={`p-4 rounded-lg flex items-center justify-between transition-all ${
-                  isWinner
-                    ? "bg-gold/20 border-2 border-gold"
-                    : "bg-muted/50"
+                className={`p-3 rounded-xl flex items-center gap-3 transition-all ${
+                  isWinner ? "bg-gold/10 border border-gold/30" : "bg-muted/30"
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  {index < 3 ? (
-                    <Medal
-                      className={`w-6 h-6 ${medalColors[index]}`}
-                      style={index === 0 ? { filter: "drop-shadow(0 0 8px hsl(45 90% 55% / 0.5))" } : undefined}
-                    />
-                  ) : (
-                    <span className="w-6 text-center text-muted-foreground font-mono">
-                      {index + 1}
-                    </span>
-                  )}
-                  <span className={isWinner ? "font-bold text-lg" : ""}>
-                    {player.profiles.username}
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className={`text-xs ${
-                      player.is_impostor
-                        ? "border-primary/50 text-primary"
-                        : "border-safe/50 text-safe"
-                    }`}
-                  >
-                    {player.is_impostor ? "Impostor" : "Tripulante"}
-                  </Badge>
-                </div>
-                <span className="font-display text-xl text-primary">
-                  {player.points} pts
+                <span className="w-6 text-center font-display">
+                  {index < 3 ? medalEmojis[index] : `${index + 1}`}
                 </span>
+                <CrewAvatar name={player.profiles.username} size="sm" />
+                <span className={`flex-1 text-left text-sm ${isWinner ? "font-display font-bold" : ""}`}>
+                  {player.profiles.username}
+                </span>
+                <span className="font-display font-bold text-gold">{player.points}</span>
               </div>
             );
           })}
         </div>
       </div>
 
-      <Button onClick={onReturnToLobby} className="btn-safe" size="lg">
+      <Button onClick={onReturnToLobby} className="btn-safe px-8 py-5">
         <Home className="w-4 h-4 mr-2" />
         Volver al Lobby
       </Button>
