@@ -119,6 +119,7 @@ export type Database = {
         Row: {
           bot_name: string | null
           connection_status: string | null
+          hidden_points: number
           id: string
           is_bot: boolean | null
           is_eliminated: boolean | null
@@ -133,6 +134,7 @@ export type Database = {
         Insert: {
           bot_name?: string | null
           connection_status?: string | null
+          hidden_points?: number
           id?: string
           is_bot?: boolean | null
           is_eliminated?: boolean | null
@@ -147,6 +149,7 @@ export type Database = {
         Update: {
           bot_name?: string | null
           connection_status?: string | null
+          hidden_points?: number
           id?: string
           is_bot?: boolean | null
           is_eliminated?: boolean | null

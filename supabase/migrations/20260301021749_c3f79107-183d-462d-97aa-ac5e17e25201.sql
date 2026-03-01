@@ -1,0 +1,1 @@
+ALTER TABLE public.lobby_players ADD COLUMN hidden_points integer NOT NULL DEFAULT 0;
