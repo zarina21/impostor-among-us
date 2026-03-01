@@ -62,6 +62,9 @@ const RoundResults = ({
               era el impostor. La palabra era:{" "}
               <span className="font-display font-bold text-safe">{secretWord}</span>
             </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Quienes votaron correctamente ganan 1 punto. El impostor recibe sus puntos acumulados.
+            </p>
           </div>
         ) : (
           <div className="animate-bounce-in">
@@ -72,7 +75,7 @@ const RoundResults = ({
               ¡El impostor sobrevive!
             </h2>
             <p className="text-sm text-muted-foreground mt-2">
-              Los tripulantes votaron a un inocente. El impostor gana un punto.
+              Los tripulantes no lograron descubrir al impostor. Sigue acumulando puntos en secreto...
             </p>
           </div>
         )}

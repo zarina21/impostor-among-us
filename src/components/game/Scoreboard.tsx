@@ -1,5 +1,4 @@
-import { Trophy, Star, Target } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Trophy } from "lucide-react";
 import CrewAvatar from "./CrewAvatar";
 
 interface Player {
@@ -9,6 +8,7 @@ interface Player {
   is_bot: boolean;
   bot_name: string | null;
   points: number;
+  hidden_points?: number;
   profiles: {
     username: string;
   };
@@ -21,6 +21,8 @@ interface ScoreboardProps {
 }
 
 const Scoreboard = ({ players, pointsToWin, currentUserId }: ScoreboardProps) => {
+  // For display: hide impostor's hidden_points (don't add them to visible score)
+  // Only show the "points" field which is the officially revealed score
   const sortedPlayers = [...players].sort((a, b) => b.points - a.points);
 
   return (
@@ -36,7 +38,8 @@ const Scoreboard = ({ players, pointsToWin, currentUserId }: ScoreboardProps) =>
       <div className="space-y-1.5">
         {sortedPlayers.map((player, index) => {
           const isMe = player.user_id === currentUserId;
-          const progressPercent = Math.min((player.points / pointsToWin) * 100, 100);
+          const displayPoints = player.points;
+          const progressPercent = Math.min((displayPoints / pointsToWin) * 100, 100);
 
           return (
             <div key={player.id} className={`flex items-center gap-2 p-2 rounded-lg ${isMe ? "bg-primary/5" : ""}`}>
@@ -47,14 +50,14 @@ const Scoreboard = ({ players, pointsToWin, currentUserId }: ScoreboardProps) =>
                     {player.profiles.username}
                     {isMe && <span className="text-primary ml-1">(Tú)</span>}
                   </span>
-                  <span className="text-xs font-display font-bold text-gold">{player.points}</span>
+                  <span className="text-xs font-display font-bold text-gold">{displayPoints}</span>
                 </div>
                 <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-700 ease-out"
                     style={{
                       width: `${progressPercent}%`,
-                      background: index === 0 && player.points > 0
+                      background: index === 0 && displayPoints > 0
                         ? "var(--gradient-safe)"
                         : "hsl(var(--muted-foreground) / 0.3)",
                     }}

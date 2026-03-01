@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Eye, ArrowLeft, Copy, Shield, Skull, Zap } from "lucide-react";
+import { Users, Eye, ArrowLeft, Copy, Shield, Skull, Zap, Ban } from "lucide-react";
 import { toast } from "sonner";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -29,6 +29,7 @@ interface Player {
   is_bot: boolean;
   bot_name: string | null;
   points: number;
+  hidden_points: number;
   profiles: {
     username: string;
   };
@@ -121,7 +122,7 @@ const Game = () => {
 
     const { data: playersData } = await supabase
       .from("lobby_players")
-      .select("id, user_id, is_impostor, is_eliminated, is_ready, is_bot, bot_name, points")
+      .select("id, user_id, is_impostor, is_eliminated, is_ready, is_bot, bot_name, points, hidden_points")
       .eq("lobby_id", lobbyData.id);
 
     if (playersData && playersData.length > 0) {
@@ -146,6 +147,7 @@ const Game = () => {
         is_bot: p.is_bot || false,
         bot_name: p.bot_name || null,
         points: p.points || 0,
+        hidden_points: (p as any).hidden_points || 0,
         profiles: {
           username: p.is_bot
             ? p.bot_name || "Bot"
@@ -200,7 +202,8 @@ const Game = () => {
         setVotes(votesData);
         const myVoteData = votesData.find((v) => v.voter_id === user.id);
         if (myVoteData) {
-          setMyVote(myVoteData.voted_for_id);
+          // If voter voted for themselves, it's a skip
+          setMyVote(myVoteData.voter_id === myVoteData.voted_for_id ? "skip" : myVoteData.voted_for_id);
         }
       }
     }
@@ -323,38 +326,67 @@ const Game = () => {
     });
     if (error) { toast.error("Error al votar"); return; }
     setMyVote(votedForId);
-    toast.success("¡Voto registrado!");
+    toast.success(votedForId === "skip" ? "¡No votaste por nadie!" : "¡Voto registrado!");
+  };
+
+  const handleSkipVote = async () => {
+    if (!lobby || !user || myVote) return;
+    const { error } = await supabase.from("votes").insert({
+      lobby_id: lobby.id, round: lobby.current_round, voter_id: user.id, voted_for_id: user.id,
+    });
+    if (error) { toast.error("Error al votar"); return; }
+    setMyVote("skip");
+    toast.success("No votaste por nadie");
   };
 
   const handleProcessVotes = async () => {
     if (!lobby || !user || lobby.host_id !== user.id) return;
 
+    // Count votes (excluding self-votes which are "skip")
+    const realVotes = votes.filter((v) => v.voter_id !== v.voted_for_id);
     const voteCounts: Record<string, number> = {};
-    votes.forEach((v) => { voteCounts[v.voted_for_id] = (voteCounts[v.voted_for_id] || 0) + 1; });
-
-    const maxVotes = Math.max(...Object.values(voteCounts));
-    const votedPlayerId = Object.keys(voteCounts).find((id) => voteCounts[id] === maxVotes);
-    const votedPlayer = players.find((p) => p.user_id === votedPlayerId);
+    realVotes.forEach((v) => { voteCounts[v.voted_for_id] = (voteCounts[v.voted_for_id] || 0) + 1; });
 
     const changes: PointChange[] = [];
     let caught = false;
     let caughtPlayer: Player | null = null;
 
-    if (votedPlayer) {
-      if (votedPlayer.is_impostor) {
+    if (Object.keys(voteCounts).length > 0) {
+      const maxVotes = Math.max(...Object.values(voteCounts));
+      const votedPlayerId = Object.keys(voteCounts).find((id) => voteCounts[id] === maxVotes);
+      const votedPlayer = players.find((p) => p.user_id === votedPlayerId);
+
+      if (votedPlayer && votedPlayer.is_impostor) {
         caught = true;
         caughtPlayer = votedPlayer;
-        const crewmates = players.filter((p) => !p.is_impostor);
-        for (const crewmate of crewmates) {
-          await supabase.from("lobby_players").update({ points: crewmate.points + 1 }).eq("id", crewmate.id);
-          changes.push({ playerId: crewmate.user_id, pointsGained: 1, reason: "Descubrió al impostor" });
+
+        // Voters who voted for the impostor get 1 point each
+        const votersForImpostor = realVotes.filter((v) => v.voted_for_id === votedPlayer.user_id).map((v) => v.voter_id);
+        for (const voterId of votersForImpostor) {
+          const voter = players.find((p) => p.user_id === voterId);
+          if (voter) {
+            await supabase.from("lobby_players").update({ points: voter.points + 1 }).eq("id", voter.id);
+            changes.push({ playerId: voter.user_id, pointsGained: 1, reason: "Votó por el impostor" });
+          }
         }
-      } else {
-        const impostor = players.find((p) => p.is_impostor);
-        if (impostor) {
-          await supabase.from("lobby_players").update({ points: impostor.points + 1 }).eq("id", impostor.id);
-          changes.push({ playerId: impostor.user_id, pointsGained: 1, reason: "Sobrevivió la ronda" });
+
+        // Impostor gets their hidden points revealed + 1 for being caught
+        const impostorTotalHidden = votedPlayer.hidden_points;
+        if (impostorTotalHidden > 0) {
+          await supabase.from("lobby_players").update({ 
+            points: votedPlayer.points + impostorTotalHidden, 
+            hidden_points: 0 
+          }).eq("id", votedPlayer.id);
+          changes.push({ playerId: votedPlayer.user_id, pointsGained: impostorTotalHidden, reason: `Puntos acumulados como impostor (${impostorTotalHidden} rondas)` });
         }
+      }
+    }
+
+    if (!caught) {
+      // Impostor survives - accumulate hidden point
+      const impostors = players.filter((p) => p.is_impostor);
+      for (const impostor of impostors) {
+        await supabase.from("lobby_players").update({ hidden_points: impostor.hidden_points + 1 }).eq("id", impostor.id);
       }
     }
 
@@ -367,7 +399,7 @@ const Game = () => {
   const handleNextRound = async () => {
     if (!lobby || !user || lobby.host_id !== user.id) return;
 
-    const updatedPlayers = await supabase.from("lobby_players").select("id, user_id, is_impostor, points").eq("lobby_id", lobby.id);
+    const updatedPlayers = await supabase.from("lobby_players").select("id, user_id, is_impostor, points, hidden_points").eq("lobby_id", lobby.id);
     if (updatedPlayers.data) {
       const winningPlayer = updatedPlayers.data.find((p) => p.points >= pointsToWin);
       if (winningPlayer) {
@@ -388,11 +420,14 @@ const Game = () => {
       await supabase.from("lobbies").update({ current_round: lobby.current_round + 1 }).eq("id", lobby.id);
     }
 
-    const readyPlayers = players.filter((p) => p.is_ready);
-    const shuffledPlayers = [...readyPlayers].sort(() => Math.random() - 0.5);
-    const newImpostorIds = shuffledPlayers.slice(0, lobby.impostor_count).map((p) => p.id);
-    for (const player of readyPlayers) {
-      await supabase.from("lobby_players").update({ is_impostor: newImpostorIds.includes(player.id) }).eq("id", player.id);
+    // Only reassign impostor if the current one was caught
+    if (impostorCaught) {
+      const readyPlayers = players.filter((p) => p.is_ready);
+      const shuffledPlayers = [...readyPlayers].sort(() => Math.random() - 0.5);
+      const newImpostorIds = shuffledPlayers.slice(0, lobby.impostor_count).map((p) => p.id);
+      for (const player of readyPlayers) {
+        await supabase.from("lobby_players").update({ is_impostor: newImpostorIds.includes(player.id) }).eq("id", player.id);
+      }
     }
 
     setMyVote(null);
@@ -655,9 +690,19 @@ const Game = () => {
                       )}
                     </div>
                   ) : (
-                    <p className="text-center text-xs text-muted-foreground">
-                      Selecciona un jugador de la lista a la izquierda para votar
-                    </p>
+                    <div className="text-center space-y-3">
+                      <p className="text-xs text-muted-foreground">
+                        Selecciona un jugador de la lista a la izquierda para votar
+                      </p>
+                      <Button
+                        onClick={handleSkipVote}
+                        variant="outline"
+                        className="border-muted-foreground/30 text-muted-foreground hover:text-foreground"
+                      >
+                        <Ban className="w-4 h-4 mr-2" />
+                        No votar
+                      </Button>
+                    </div>
                   )}
                 </div>
               )}
