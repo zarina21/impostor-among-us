@@ -86,6 +86,8 @@ const Game = () => {
   const [impostorCaught, setImpostorCaught] = useState(false);
   const [caughtImpostor, setCaughtImpostor] = useState<Player | null>(null);
   const [winner, setWinner] = useState<Player | null>(null);
+  const [categories, setCategories] = useState<{ id: string; name: string; words: string[] }[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const { getFriendStatus } = useFriendships(user);
 
   const { isMyTurn, currentTurnPlayer, turnOrder, allCluesSubmitted } = useTurnSystem({
@@ -102,6 +104,13 @@ const Game = () => {
     lobbyId: lobby?.id,
     gamePhase,
   });
+
+  // Fetch categories on mount
+  useEffect(() => {
+    supabase.from("word_categories").select("id, name, words").then(({ data }) => {
+      if (data) setCategories(data);
+    });
+  }, []);
 
   const fetchGameData = useCallback(async () => {
     if (!code || !user) return;
@@ -281,14 +290,13 @@ const Game = () => {
       return;
     }
 
-    const { data: categories } = await supabase.from("word_categories").select("words");
-    if (!categories || categories.length === 0) {
-      toast.error("Error al obtener palabras");
+    const selectedCat = categories.find(c => c.id === selectedCategory);
+    const wordsPool = selectedCat ? selectedCat.words : categories.flatMap((c) => c.words);
+    if (wordsPool.length === 0) {
+      toast.error("No hay palabras disponibles");
       return;
     }
-
-    const allWords = categories.flatMap((c) => c.words);
-    const randomWord = allWords[Math.floor(Math.random() * allWords.length)];
+    const randomWord = wordsPool[Math.floor(Math.random() * wordsPool.length)];
 
     const shuffledPlayers = [...readyPlayers].sort(() => Math.random() - 0.5);
     const impostorIds = shuffledPlayers.slice(0, lobby.impostor_count).map((p) => p.id);
@@ -411,10 +419,10 @@ const Game = () => {
       }
     }
 
-    const { data: categories } = await supabase.from("word_categories").select("words");
-    if (categories && categories.length > 0) {
-      const allWords = categories.flatMap((c) => c.words);
-      const randomWord = allWords[Math.floor(Math.random() * allWords.length)];
+    const selectedCat = categories.find(c => c.id === selectedCategory);
+    const wordsPool = selectedCat ? selectedCat.words : categories.flatMap((c) => c.words);
+    if (wordsPool.length > 0) {
+      const randomWord = wordsPool[Math.floor(Math.random() * wordsPool.length)];
       await supabase.from("lobbies").update({ current_round: lobby.current_round + 1, secret_word: randomWord }).eq("id", lobby.id);
     } else {
       await supabase.from("lobbies").update({ current_round: lobby.current_round + 1 }).eq("id", lobby.id);
@@ -615,21 +623,49 @@ const Game = () => {
                     </div>
                   </div>
 
-                  <div className="flex gap-3">
-                    <Button
-                      onClick={handleReady}
-                      className={`${myPlayer?.is_ready ? "btn-safe" : "btn-impostor"} px-8 py-5 text-base`}
-                    >
-                      {myPlayer?.is_ready ? "✓ Listo" : "Estoy Listo"}
-                    </Button>
+                   {/* Category selector - host only */}
+                   {isHost && categories.length > 0 && (
+                     <div className="w-full max-w-xs space-y-2">
+                       <p className="text-xs text-muted-foreground font-display uppercase tracking-wider">Modo de juego</p>
+                       <div className="flex flex-wrap gap-2 justify-center">
+                         <Button
+                           variant={selectedCategory === null ? "default" : "outline"}
+                           size="sm"
+                           onClick={() => setSelectedCategory(null)}
+                           className={selectedCategory === null ? "btn-safe" : "border-border"}
+                         >
+                           Todas
+                         </Button>
+                         {categories.map((cat) => (
+                           <Button
+                             key={cat.id}
+                             variant={selectedCategory === cat.id ? "default" : "outline"}
+                             size="sm"
+                             onClick={() => setSelectedCategory(cat.id)}
+                             className={selectedCategory === cat.id ? "btn-impostor" : "border-border"}
+                           >
+                             {cat.name}
+                           </Button>
+                         ))}
+                       </div>
+                     </div>
+                   )}
 
-                    {isHost && readyCount >= (lobby?.min_players || 3) && (
-                      <Button onClick={handleStartGame} className="btn-impostor px-8 py-5 text-base animate-bounce-in">
-                        <Skull className="w-5 h-5 mr-2" />
-                        ¡Iniciar Partida!
-                      </Button>
-                    )}
-                  </div>
+                   <div className="flex gap-3">
+                     <Button
+                       onClick={handleReady}
+                       className={`${myPlayer?.is_ready ? "btn-safe" : "btn-impostor"} px-8 py-5 text-base`}
+                     >
+                       {myPlayer?.is_ready ? "✓ Listo" : "Estoy Listo"}
+                     </Button>
+
+                     {isHost && readyCount >= (lobby?.min_players || 3) && (
+                       <Button onClick={handleStartGame} className="btn-impostor px-8 py-5 text-base animate-bounce-in">
+                         <Skull className="w-5 h-5 mr-2" />
+                         ¡Iniciar Partida!
+                       </Button>
+                     )}
+                   </div>
                 </div>
               )}
 
