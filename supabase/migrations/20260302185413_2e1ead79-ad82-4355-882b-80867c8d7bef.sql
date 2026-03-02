@@ -1,0 +1,1 @@
+ALTER TABLE public.lobby_players DROP CONSTRAINT IF EXISTS lobby_players_user_id_fkey;
