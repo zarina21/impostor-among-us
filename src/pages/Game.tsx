@@ -352,6 +352,7 @@ const Game = () => {
 
     // Count votes (excluding self-votes which are "skip")
     const realVotes = votes.filter((v) => v.voter_id !== v.voted_for_id);
+    const totalVoters = votes.length; // all players who voted (including skips)
     const voteCounts: Record<string, number> = {};
     realVotes.forEach((v) => { voteCounts[v.voted_for_id] = (voteCounts[v.voted_for_id] || 0) + 1; });
 
@@ -359,17 +360,19 @@ const Game = () => {
     let caught = false;
     let caughtPlayer: Player | null = null;
 
-    if (Object.keys(voteCounts).length > 0) {
-      const maxVotes = Math.max(...Object.values(voteCounts));
-      const votedPlayerId = Object.keys(voteCounts).find((id) => voteCounts[id] === maxVotes);
-      const votedPlayer = players.find((p) => p.user_id === votedPlayerId);
+    // Check each impostor: if they received more than half of total voters' votes, they're caught
+    const impostors = players.filter((p) => p.is_impostor && !p.is_eliminated);
+    const majorityThreshold = Math.floor(totalVoters / 2) + 1;
 
-      if (votedPlayer && votedPlayer.is_impostor) {
+    for (const impostor of impostors) {
+      const votesAgainstImpostor = voteCounts[impostor.user_id] || 0;
+      
+      if (votesAgainstImpostor >= majorityThreshold) {
         caught = true;
-        caughtPlayer = votedPlayer;
+        caughtPlayer = impostor;
 
         // Voters who voted for the impostor get 1 point each
-        const votersForImpostor = realVotes.filter((v) => v.voted_for_id === votedPlayer.user_id).map((v) => v.voter_id);
+        const votersForImpostor = realVotes.filter((v) => v.voted_for_id === impostor.user_id).map((v) => v.voter_id);
         for (const voterId of votersForImpostor) {
           const voter = players.find((p) => p.user_id === voterId);
           if (voter) {
@@ -378,15 +381,16 @@ const Game = () => {
           }
         }
 
-        // Impostor gets their hidden points revealed + 1 for being caught
-        const impostorTotalHidden = votedPlayer.hidden_points;
+        // Impostor gets their hidden points revealed
+        const impostorTotalHidden = impostor.hidden_points;
         if (impostorTotalHidden > 0) {
           await supabase.from("lobby_players").update({ 
-            points: votedPlayer.points + impostorTotalHidden, 
+            points: impostor.points + impostorTotalHidden, 
             hidden_points: 0 
-          }).eq("id", votedPlayer.id);
-          changes.push({ playerId: votedPlayer.user_id, pointsGained: impostorTotalHidden, reason: `Puntos acumulados como impostor (${impostorTotalHidden} rondas)` });
+          }).eq("id", impostor.id);
+          changes.push({ playerId: impostor.user_id, pointsGained: impostorTotalHidden, reason: `Puntos acumulados como impostor (${impostorTotalHidden} rondas)` });
         }
+        break; // Only one impostor can be caught per round
       }
     }
 
