@@ -350,9 +350,18 @@ const Game = () => {
   const handleProcessVotes = async () => {
     if (!lobby || !user || lobby.host_id !== user.id) return;
 
+    // Re-fetch votes from DB to ensure we have all votes (including bot votes)
+    const { data: freshVotes } = await supabase
+      .from("votes")
+      .select("voted_for_id, voter_id")
+      .eq("lobby_id", lobby.id)
+      .eq("round", lobby.current_round);
+
+    const allVotes = freshVotes || votes;
+
     // Count votes (excluding self-votes which are "skip")
-    const realVotes = votes.filter((v) => v.voter_id !== v.voted_for_id);
-    const totalVoters = votes.length; // all players who voted (including skips)
+    const realVotes = allVotes.filter((v) => v.voter_id !== v.voted_for_id);
+    const totalVoters = allVotes.length; // all players who voted (including skips)
     const voteCounts: Record<string, number> = {};
     realVotes.forEach((v) => { voteCounts[v.voted_for_id] = (voteCounts[v.voted_for_id] || 0) + 1; });
 
