@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -89,6 +89,7 @@ const Game = () => {
   const [categories, setCategories] = useState<{ id: string; name: string; words: string[] }[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const { getFriendStatus } = useFriendships(user);
+  const resultsProcessedRef = useRef(false);
 
   const { isMyTurn, currentTurnPlayer, turnOrder, allCluesSubmitted } = useTurnSystem({
     players,
@@ -232,14 +233,11 @@ const Game = () => {
 
       if (!allPlayersSubmittedClues) {
         setGamePhase("clue");
-      } else {
-        const myVoteExists = fetchedVotes.find((v) => v.voter_id === user.id);
-        if (!myVoteExists) {
-          setGamePhase("voting");
-        } else {
-          setGamePhase("results");
-        }
+      } else if (!resultsProcessedRef.current) {
+        // Stay in "voting" phase until handleProcessVotes is called
+        setGamePhase("voting");
       }
+      // If resultsProcessedRef.current is true, don't override "results" phase
     }
 
     setLoading(false);
@@ -414,6 +412,7 @@ const Game = () => {
     setPointChanges(changes);
     setImpostorCaught(caught);
     setCaughtImpostor(caughtPlayer);
+    resultsProcessedRef.current = true;
     setGamePhase("results");
   };
 
@@ -451,6 +450,7 @@ const Game = () => {
       }
     }
 
+    resultsProcessedRef.current = false;
     setMyVote(null);
     setClues([]);
     setVotes([]);
@@ -480,6 +480,21 @@ const Game = () => {
     }
   };
 
+  // Auto-process votes when all votes are in (host only)
+  const activePlayersForVotes = players.filter((p) => !p.is_eliminated);
+  const isHostForVotes = user && lobby && lobby.host_id === user.id;
+  useEffect(() => {
+    if (
+      gamePhase === "voting" &&
+      isHostForVotes &&
+      activePlayersForVotes.length > 0 &&
+      votes.length >= activePlayersForVotes.length &&
+      !resultsProcessedRef.current
+    ) {
+      handleProcessVotes();
+    }
+  }, [gamePhase, votes.length, activePlayersForVotes.length, isHostForVotes]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center space-bg">
@@ -497,6 +512,7 @@ const Game = () => {
   const isHost = user && lobby && lobby.host_id === user.id;
   const activePlayers = players.filter((p) => !p.is_eliminated);
   const readyCount = players.filter((p) => p.is_ready).length;
+
 
   // Phase info
   const phaseConfig = {
@@ -729,12 +745,10 @@ const Game = () => {
                         <Shield className="w-4 h-4" />
                         Voto registrado — Esperando a los demás ({votes.length}/{activePlayers.length})
                       </div>
-                      {isHost && votes.length === activePlayers.length && (
-                        <div>
-                          <Button onClick={handleProcessVotes} className="btn-impostor px-8 py-5 animate-bounce-in">
-                            <Zap className="w-5 h-5 mr-2" />
-                            Ver Resultados
-                          </Button>
+                      {votes.length >= activePlayers.length && (
+                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 text-primary text-sm animate-pulse">
+                          <Zap className="w-4 h-4" />
+                          Procesando resultados...
                         </div>
                       )}
                     </div>
