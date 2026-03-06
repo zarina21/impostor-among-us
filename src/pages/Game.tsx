@@ -13,6 +13,7 @@ import InviteFriends from "@/components/game/InviteFriends";
 import BotManager from "@/components/game/BotManager";
 import LobbySettings from "@/components/game/LobbySettings";
 import CluePhase from "@/components/game/CluePhase";
+import VotingTimer from "@/components/game/VotingTimer";
 import Scoreboard from "@/components/game/Scoreboard";
 import RoundResults from "@/components/game/RoundResults";
 import GameWinner from "@/components/game/GameWinner";
@@ -705,12 +706,19 @@ const Game = () => {
               {/* Voting Phase */}
               {gamePhase === "voting" && (
                 <div className="space-y-6">
-                  <div className="text-center">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 border border-primary/30 mb-4">
-                      <Skull className="w-8 h-8 text-primary" />
+                  <div className="flex items-center justify-center gap-6">
+                    <div className="text-center">
+                      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 border border-primary/30 mb-4">
+                        <Skull className="w-8 h-8 text-primary" />
+                      </div>
+                      <h2 className="font-display text-2xl font-bold mb-1">¿Quién es el impostor?</h2>
+                      <p className="text-sm text-muted-foreground">Revisa las pistas y vota por el sospechoso</p>
                     </div>
-                    <h2 className="font-display text-2xl font-bold mb-1">¿Quién es el impostor?</h2>
-                    <p className="text-sm text-muted-foreground">Revisa las pistas y vota por el sospechoso</p>
+                    <VotingTimer
+                      totalSeconds={gameSettings?.voting_time_seconds ?? 60}
+                      isActive={!myVote}
+                      onTimeUp={handleSkipVote}
+                    />
                   </div>
 
                   {/* Clues display */}
