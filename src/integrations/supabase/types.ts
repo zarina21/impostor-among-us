@@ -43,30 +43,46 @@ export type Database = {
       }
       game_settings: {
         Row: {
+          category_id: string | null
           created_at: string
           crewmate_points_for_catch: number
           id: string
           impostor_points_per_round: number
           lobby_id: string
           points_to_win: number
+          total_rounds: number
+          voting_time_seconds: number
         }
         Insert: {
+          category_id?: string | null
           created_at?: string
           crewmate_points_for_catch?: number
           id?: string
           impostor_points_per_round?: number
           lobby_id: string
           points_to_win?: number
+          total_rounds?: number
+          voting_time_seconds?: number
         }
         Update: {
+          category_id?: string | null
           created_at?: string
           crewmate_points_for_catch?: number
           id?: string
           impostor_points_per_round?: number
           lobby_id?: string
           points_to_win?: number
+          total_rounds?: number
+          voting_time_seconds?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "game_settings_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "word_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "game_settings_lobby_id_fkey"
             columns: ["lobby_id"]

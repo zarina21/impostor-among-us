@@ -11,6 +11,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import PlayerCard from "@/components/game/PlayerCard";
 import InviteFriends from "@/components/game/InviteFriends";
 import BotManager from "@/components/game/BotManager";
+import LobbySettings from "@/components/game/LobbySettings";
 import CluePhase from "@/components/game/CluePhase";
 import Scoreboard from "@/components/game/Scoreboard";
 import RoundResults from "@/components/game/RoundResults";
@@ -81,7 +82,8 @@ const Game = () => {
   const [gamePhase, setGamePhase] = useState<"waiting" | "clue" | "voting" | "results" | "finished">("waiting");
   const [loading, setLoading] = useState(true);
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
-  const [pointsToWin] = useState(10);
+  const [pointsToWin, setPointsToWin] = useState(10);
+  const [gameSettings, setGameSettings] = useState<any>(null);
   const [pointChanges, setPointChanges] = useState<PointChange[]>([]);
   const [impostorCaught, setImpostorCaught] = useState(false);
   const [caughtImpostor, setCaughtImpostor] = useState<Player | null>(null);
@@ -652,31 +654,20 @@ const Game = () => {
                     </div>
                   </div>
 
-                   {/* Category selector - host only */}
-                   {isHost && categories.length > 0 && (
-                     <div className="w-full max-w-xs space-y-2">
-                       <p className="text-xs text-muted-foreground font-display uppercase tracking-wider">Modo de juego</p>
-                       <div className="flex flex-wrap gap-2 justify-center">
-                         <Button
-                           variant={selectedCategory === null ? "default" : "outline"}
-                           size="sm"
-                           onClick={() => setSelectedCategory(null)}
-                           className={selectedCategory === null ? "btn-safe" : "border-border"}
-                         >
-                           Todas
-                         </Button>
-                         {categories.map((cat) => (
-                           <Button
-                             key={cat.id}
-                             variant={selectedCategory === cat.id ? "default" : "outline"}
-                             size="sm"
-                             onClick={() => setSelectedCategory(cat.id)}
-                             className={selectedCategory === cat.id ? "btn-impostor" : "border-border"}
-                           >
-                             {cat.name}
-                           </Button>
-                         ))}
-                       </div>
+                   {/* Game Settings Panel */}
+                   {lobby && (
+                     <div className="w-full max-w-sm">
+                       <LobbySettings
+                         lobbyId={lobby.id}
+                         isHost={!!isHost}
+                         categories={categories}
+                         selectedCategory={selectedCategory}
+                         onCategoryChange={setSelectedCategory}
+                         onSettingsChange={(s) => {
+                           setGameSettings(s);
+                           setPointsToWin(s.points_to_win);
+                         }}
+                       />
                      </div>
                    )}
 
