@@ -86,7 +86,7 @@ const RoundResults = ({
         <h3 className="font-display text-sm font-semibold text-muted-foreground">Votación</h3>
         <div className="grid gap-1.5">
           {players.map((player) => {
-            const voteCount = votes.filter((v) => v.voted_for_id === player.user_id).length;
+            const voteCount = votes.filter((v) => v.voted_for_id === player.user_id && v.voter_id !== v.voted_for_id).length;
             const wasCaught = impostorCaught && caughtImpostor?.user_id === player.user_id;
 
             return (
