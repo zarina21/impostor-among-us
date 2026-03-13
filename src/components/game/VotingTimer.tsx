@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Clock } from "lucide-react";
 
 const playBeep = (frequency: number, duration: number, volume = 0.15) => {
@@ -14,6 +14,23 @@ const playBeep = (frequency: number, duration: number, volume = 0.15) => {
     gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + duration);
+    osc.onended = () => ctx.close();
+  } catch {}
+};
+
+const playTick = () => {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 1200;
+    osc.type = "sine";
+    gain.gain.setValueAtTime(0.06, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.05);
     osc.onended = () => ctx.close();
   } catch {}
 };
@@ -42,9 +59,10 @@ interface VotingTimerProps {
   totalSeconds: number;
   onTimeUp: () => void;
   isActive: boolean;
+  label?: string;
 }
 
-const VotingTimer = ({ totalSeconds, onTimeUp, isActive }: VotingTimerProps) => {
+const VotingTimer = ({ totalSeconds, onTimeUp, isActive, label = "Votación" }: VotingTimerProps) => {
   const [remaining, setRemaining] = useState(totalSeconds);
   const onTimeUpRef = useRef(onTimeUp);
   const alertsPlayedRef = useRef<Set<number>>(new Set());
@@ -65,6 +83,10 @@ const VotingTimer = ({ totalSeconds, onTimeUp, isActive }: VotingTimerProps) => 
           playTimeUpSound();
           onTimeUpRef.current();
           return 0;
+        }
+        // Tick sound every second in the last 10 seconds
+        if (prev <= 11) {
+          playTick();
         }
         if (prev === 11 && !alertsPlayedRef.current.has(10)) {
           alertsPlayedRef.current.add(10);
@@ -146,7 +168,7 @@ const VotingTimer = ({ totalSeconds, onTimeUp, isActive }: VotingTimerProps) => 
       </div>
       <div className="flex items-center gap-1 text-[10px] text-muted-foreground uppercase tracking-wider">
         <Clock className="w-3 h-3" />
-        <span>Votación</span>
+        <span>{label}</span>
       </div>
     </div>
   );

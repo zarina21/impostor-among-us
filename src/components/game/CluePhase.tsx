@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Send, Eye, Clock, Skull, Shield } from "lucide-react";
 import TurnIndicator from "./TurnIndicator";
 import CrewAvatar from "./CrewAvatar";
+import VotingTimer from "./VotingTimer";
 
 interface Player {
   id: string;
@@ -41,6 +42,7 @@ interface CluePhaseProps {
   currentTurnPlayer: Player | null;
   turnOrder: TurnOrderItem[];
   onSubmitClue: (clue: string) => Promise<void>;
+  clueTimeSeconds?: number;
 }
 
 const CluePhase = ({
@@ -51,6 +53,7 @@ const CluePhase = ({
   currentTurnPlayer,
   turnOrder,
   onSubmitClue,
+  clueTimeSeconds = 30,
 }: CluePhaseProps) => {
   const [currentClue, setCurrentClue] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,6 +62,14 @@ const CluePhase = ({
     if (!currentClue.trim() || isSubmitting) return;
     setIsSubmitting(true);
     await onSubmitClue(currentClue.trim());
+    setCurrentClue("");
+    setIsSubmitting(false);
+  };
+
+  const handleClueTimeUp = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    await onSubmitClue("...");
     setCurrentClue("");
     setIsSubmitting(false);
   };
@@ -103,14 +114,22 @@ const CluePhase = ({
       {/* Current turn info */}
       {isMyTurn ? (
         <div className="space-y-4">
-          <div className="text-center p-3 rounded-lg bg-primary/20 border border-primary">
-            <p className="font-semibold text-primary flex items-center justify-center gap-2">
-              <Eye className="w-5 h-5" />
-              ¡Es tu turno!
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Da una pista que haga referencia a la palabra sin revelarla
-            </p>
+          <div className="flex items-center justify-center gap-4">
+            <div className="text-center p-3 rounded-lg bg-primary/20 border border-primary flex-1">
+              <p className="font-semibold text-primary flex items-center justify-center gap-2">
+                <Eye className="w-5 h-5" />
+                ¡Es tu turno!
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Da una pista que haga referencia a la palabra sin revelarla
+              </p>
+            </div>
+            <VotingTimer
+              totalSeconds={clueTimeSeconds}
+              isActive={!isSubmitting}
+              onTimeUp={handleClueTimeUp}
+              label="Tu turno"
+            />
           </div>
 
           <div className="flex gap-2">
