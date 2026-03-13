@@ -88,6 +88,9 @@ const RoundResults = ({
           {players.map((player) => {
             const voteCount = votes.filter((v) => v.voted_for_id === player.user_id && v.voter_id !== v.voted_for_id).length;
             const wasCaught = impostorCaught && caughtImpostor?.user_id === player.user_id;
+            const didSkipVote = votes.some((v) => v.voter_id === player.user_id && v.voter_id === v.voted_for_id);
+            const didNotVote = !votes.some((v) => v.voter_id === player.user_id);
+            const abstained = didSkipVote || didNotVote;
 
             return (
               <div
@@ -100,6 +103,11 @@ const RoundResults = ({
                 <span className={`flex-1 text-left text-sm ${wasCaught ? "text-primary font-display font-semibold" : ""}`}>
                   {player.profiles.username}
                 </span>
+                {abstained && (
+                  <Badge variant="outline" className="text-[10px] text-muted-foreground border-muted-foreground/30">
+                    No votó
+                  </Badge>
+                )}
                 {voteCount > 0 && (
                   <Badge variant="destructive" className="text-[10px]">
                     {voteCount} {voteCount === 1 ? "voto" : "votos"}
