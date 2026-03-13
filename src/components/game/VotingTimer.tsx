@@ -1,5 +1,22 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Clock } from "lucide-react";
+
+const playAlertBeep = () => {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    osc.type = "square";
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.15);
+    osc.onended = () => ctx.close();
+  } catch {}
+};
 
 interface VotingTimerProps {
   totalSeconds: number;
@@ -10,10 +27,12 @@ interface VotingTimerProps {
 const VotingTimer = ({ totalSeconds, onTimeUp, isActive }: VotingTimerProps) => {
   const [remaining, setRemaining] = useState(totalSeconds);
   const onTimeUpRef = useRef(onTimeUp);
+  const alertPlayedRef = useRef(false);
   onTimeUpRef.current = onTimeUp;
 
   useEffect(() => {
     setRemaining(totalSeconds);
+    alertPlayedRef.current = false;
   }, [totalSeconds]);
 
   useEffect(() => {
@@ -25,6 +44,10 @@ const VotingTimer = ({ totalSeconds, onTimeUp, isActive }: VotingTimerProps) => 
           clearInterval(interval);
           onTimeUpRef.current();
           return 0;
+        }
+        if (prev === 11 && !alertPlayedRef.current) {
+          alertPlayedRef.current = true;
+          playAlertBeep();
         }
         return prev - 1;
       });
