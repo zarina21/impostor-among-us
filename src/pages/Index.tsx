@@ -61,7 +61,10 @@ const Index = () => {
       {/* User header */}
       {user && (
         <div className="absolute top-4 right-4 z-20 flex items-center gap-3">
-          <div className="flex items-center gap-2 card-game px-3 py-2">
+          <div
+            className="flex items-center gap-2 card-game px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors"
+            onClick={() => navigate("/profile")}
+          >
             <CrewAvatar name={profile?.username || "?"} size="sm" />
             <span className="font-display font-semibold text-sm">
               {profile?.username || "Cargando..."}
